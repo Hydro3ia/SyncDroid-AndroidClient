@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+  <com.google.android.material.appbar.AppBarLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:fitsSystemWindows="true">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/top_app_bar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_app_logo"
+            android:contentDescription="SyncDroid" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:orientation="vertical">
+
+          <LinearLayout
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:gravity="center_vertical"
+              android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/txt_app_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SyncDroid"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txt_version_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="?attr/colorSecondaryContainer"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="1dp"
+                android:paddingBottom="1dp"
+                android:text="0.1.2.0"
+                android:fontFamily="monospace"
+                android:textSize="10sp"
+                android:textColor="?attr/colorOnSecondaryContainer" />
+          </LinearLayout>
+
+          <TextView
+              android:id="@+id/txt_app_subtitle"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Wireless Mirror &amp; File Sync"
+              android:textAppearance="?attr/textAppearanceLabelSmall"
+              android:textColor="?attr/colorOnSurfaceVariant"
+              android:singleLine="true"
+              android:ellipsize="end" />
+        </LinearLayout>
+
+        <!-- Companion Connection Status Pill -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_connection_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardCornerRadius="17dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:cardBackgroundColor="?attr/colorSurfaceVariant">
+
+          <LinearLayout
+              android:layout_width="wrap_content"
+              android:layout_height="match_parent"
+              android:gravity="center_vertical"
+              android:paddingStart="10dp"
+              android:paddingEnd="12dp"
+              android:orientation="horizontal">
+
+            <View
+                android:id="@+id/view_status_dot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/ic_dot_status" />
+
+            <TextView
+                android:id="@+id/txt_connection_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="No PC Connected"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:maxWidth="145dp"
+                android:singleLine="true"
+                android:ellipsize="end" />
+          </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+      </LinearLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
+  </com.google.android.material.appbar.AppBarLayout>
+
+  <!-- Adaptive Body: Side NavigationRailView (Medium/Expanded/Landscape) + Main Fragment Container -->
+  <LinearLayout
+      android:id="@+id/layout_adaptive_body"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="horizontal"
+      app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+    <com.google.android.material.navigationrail.NavigationRailView
+        android:id="@+id/navigation_rail"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:labelVisibilityMode="labeled"
+        app:menuGravity="top"
+        app:menu="@menu/bottom_nav_menu" />
+
+    <View
+        android:id="@+id/divider_nav_rail"
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="?attr/colorOutlineVariant" />
+
+    <FrameLayout
+        android:id="@+id/fragment_container"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:layout_marginBottom="80dp" />
+  </LinearLayout>
+
+  <!-- MD3 Bottom Navigation Bar (Compact Portrait) -->
+  <com.google.android.material.bottomnavigation.BottomNavigationView
+      android:id="@+id/bottom_navigation"
+      android:layout_width="match_parent"
+      android:layout_height="80dp"
+      android:layout_gravity="bottom"
+      app:labelVisibilityMode="labeled"
+      app:menu="@menu/bottom_nav_menu" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

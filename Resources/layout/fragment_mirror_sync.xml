@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:id="@+id/layout_mirror_root"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="12dp">
+
+    <!-- Storage Permission Warning Banner -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_permission_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:visibility="gone"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorError"
+        app:cardBackgroundColor="?attr/colorErrorContainer">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal"
+          android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+          <TextView
+              android:id="@+id/txt_perm_banner_title"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="All Files Access Required"
+              android:textStyle="bold"
+              android:textSize="13sp"
+              android:textColor="?attr/colorOnErrorContainer" />
+
+          <TextView
+              android:id="@+id/txt_perm_banner_desc"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="2dp"
+              android:text="Grant MANAGE_EXTERNAL_STORAGE to sync folders across /storage/emulated/0."
+              android:textSize="11sp"
+              android:textColor="?attr/colorOnErrorContainer" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_grant_perm_banner"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Grant"
+            android:textSize="12sp" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Adaptive Columns Container (Vertical on Compact, Horizontal Two-Pane on Medium/Expanded/Foldable) -->
+    <LinearLayout
+        android:id="@+id/layout_mirror_columns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+      <LinearLayout
+          android:id="@+id/pane_mirror_left"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+        <!-- Direction & Sync Mode Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:padding="12dp">
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggle_direction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btn_dir_pc_to_android">
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_dir_pc_to_android"
+                  style="?attr/materialButtonOutlinedStyle"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:text="PC ➔ Android"
+                  android:textSize="12sp" />
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_dir_android_to_pc"
+                  style="?attr/materialButtonOutlinedStyle"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:text="Android ➔ PC"
+                  android:textSize="12sp" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_mir_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:checked="true"
+                android:text="Mirror Mode — Delete extra files in target"
+                android:textSize="12sp" />
+          </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+    <!-- Card 1: Path Configuration -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:id="@+id/layout_paths_container"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="14dp">
+
+        <!-- PC Path Section -->
+        <LinearLayout
+            android:id="@+id/panel_pc_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:gravity="center_vertical"
+              android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_computer" />
+
+            <TextView
+                android:id="@+id/txt_pc_dir_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Windows PC Directory"
+                android:textStyle="bold"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/badge_pc_role"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="?attr/colorSecondaryContainer"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="SOURCE"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSecondaryContainer" />
+          </LinearLayout>
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="6dp"
+              android:gravity="center_vertical"
+              android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_pc_path"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+              <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                  android:id="@+id/input_pc_path"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:inputType="textUri"
+                  android:textSize="13sp"
+                  android:paddingTop="10dp"
+                  android:paddingBottom="10dp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_browse_pc"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Browse..."
+                android:textSize="12sp" />
+          </LinearLayout>
+        </LinearLayout>
+
+        <!-- Direction Banner Divider -->
+        <LinearLayout
+            android:id="@+id/panel_direction_divider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+          <View
+              android:layout_width="0dp"
+              android:layout_height="1dp"
+              android:layout_weight="1"
+              android:background="?attr/colorOutlineVariant" />
+
+          <TextView
+              android:id="@+id/txt_mirror_banner"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="10dp"
+              android:layout_marginEnd="10dp"
+              android:background="?attr/colorSurfaceVariant"
+              android:paddingStart="10dp"
+              android:paddingEnd="10dp"
+              android:paddingTop="3dp"
+              android:paddingBottom="3dp"
+              android:text="▼  MIRROR SYNC (/MIR)  ▼"
+              android:textSize="11sp"
+              android:textStyle="bold"
+              android:textColor="?attr/colorPrimary" />
+
+          <View
+              android:layout_width="0dp"
+              android:layout_height="1dp"
+              android:layout_weight="1"
+              android:background="?attr/colorOutlineVariant" />
+        </LinearLayout>
+
+        <!-- Android Path Section -->
+        <LinearLayout
+            android:id="@+id/panel_android_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:gravity="center_vertical"
+              android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_phone_android" />
+
+            <TextView
+                android:id="@+id/txt_android_dir_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Android Device Directory"
+                android:textStyle="bold"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/badge_android_role"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="?attr/colorSecondaryContainer"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="TARGET"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSecondaryContainer" />
+          </LinearLayout>
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="6dp"
+              android:gravity="center_vertical"
+              android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_android_path"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1">
+
+              <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                  android:id="@+id/input_android_path"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:inputType="textUri"
+                  android:textSize="13sp"
+                  android:paddingTop="10dp"
+                  android:paddingBottom="10dp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_browse_android"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Browse..."
+                android:textSize="12sp" />
+          </LinearLayout>
+        </LinearLayout>
+
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Card 2: Sync Controls & Progress -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_start_sync"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Start Sync"
+              android:textSize="13sp"
+              app:icon="@drawable/ic_sync" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_cancel_sync"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Cancel"
+              android:textSize="13sp" />
+
+          <View
+              android:layout_width="0dp"
+              android:layout_height="1dp"
+              android:layout_weight="1" />
+
+          <TextView
+              android:id="@+id/txt_sync_status"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Ready"
+              android:textSize="12sp"
+              android:textStyle="bold"
+              android:textColor="?attr/colorOnSurfaceVariant" />
+
+          <TextView
+              android:id="@+id/txt_sync_percent"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="6dp"
+              android:background="?attr/colorSecondaryContainer"
+              android:paddingStart="6dp"
+              android:paddingEnd="6dp"
+              android:paddingTop="2dp"
+              android:paddingBottom="2dp"
+              android:fontFamily="monospace"
+              android:text="0%"
+              android:textSize="12sp"
+              android:textStyle="bold"
+              android:textColor="?attr/colorOnSecondaryContainer" />
+        </LinearLayout>
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/progress_sync"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:max="100"
+            android:progress="0"
+            app:trackCornerRadius="4dp"
+            app:trackThickness="8dp" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+
+      <LinearLayout
+          android:id="@+id/pane_mirror_right"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+        <!-- Card 3: Activity Logs -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+              <TextView
+                  android:id="@+id/txt_logs_header"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:text="Activity Logs"
+                  android:textStyle="bold"
+                  android:textSize="14sp" />
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_clear_logs"
+                  style="@style/Widget.Material3.Button.TextButton"
+                  android:layout_width="wrap_content"
+                  android:layout_height="36dp"
+                  android:text="Clear"
+                  android:textSize="12sp" />
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_copy_logs"
+                  style="@style/Widget.Material3.Button.TonalButton"
+                  android:layout_width="wrap_content"
+                  android:layout_height="36dp"
+                  android:layout_marginStart="4dp"
+                  android:text="Copy All"
+                  android:textSize="12sp" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_logs"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="6dp"
+                android:background="?attr/colorSurfaceVariant"
+                android:padding="6dp"
+                android:scrollbars="vertical" />
+          </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+    </LinearLayout>
+
+  </LinearLayout>
+</androidx.core.widget.NestedScrollView>

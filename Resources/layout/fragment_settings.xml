@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:id="@+id/layout_settings_root"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="12dp">
+
+    <LinearLayout
+        android:id="@+id/layout_settings_columns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+      <LinearLayout
+          android:id="@+id/pane_settings_left"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+    <!-- Card 1: Language Selection -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <TextView
+            android:id="@+id/txt_lang_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Language / 语言"
+            android:textStyle="bold"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/txt_lang_desc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Select display language for the application interface"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_language"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_lang_en"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="English"
+              android:textSize="12sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_lang_zh_cn"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="简体中文"
+              android:textSize="12sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_lang_zh_tw"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="繁體中文"
+              android:textSize="12sp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Card 2: Material Design 3 Appearance & Dynamic Color -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <TextView
+            android:id="@+id/txt_theme_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Appearance &amp; Material Design 3"
+            android:textStyle="bold"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/txt_theme_desc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Configure dark/light theme mode and Material You dynamic wallpaper colors"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_theme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_theme_system"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="System"
+              android:textSize="12sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_theme_light"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Light"
+              android:textSize="12sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_theme_dark"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Dark"
+              android:textSize="12sp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_dynamic_color"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:checked="true"
+            android:text="Material You Dynamic Color (Android 12+)"
+            android:textSize="13sp" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+
+      <LinearLayout
+          android:id="@+id/pane_settings_right"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+    <!-- Card 3: Permissions, Network Port & Safety -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <TextView
+            android:id="@+id/txt_perm_section_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Storage Access, Port &amp; Safety"
+            android:textStyle="bold"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <TextView
+              android:id="@+id/txt_storage_perm_status"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="All Files Access: Checking..."
+              android:textSize="12sp"
+              android:textStyle="bold" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_grant_storage_perm"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Manage Permission"
+              android:textSize="12sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <TextView
+            android:id="@+id/txt_port_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Companion Listening TCP Port (Default: 45821):"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <com.google.android.material.textfield.TextInputLayout
+              style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/input_companion_port"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:fontFamily="monospace"
+                android:text="45821"
+                android:textSize="13sp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp" />
+          </com.google.android.material.textfield.TextInputLayout>
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_save_port"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Apply Port"
+              android:textSize="12sp" />
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_localsend_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:checked="true"
+            android:text="Enable LocalSend Protocol v2.1 Receiver &amp; Discovery (Port 53317)"
+            android:textSize="12sp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_confirm_delete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="Confirm before /MIR deletes extra target files"
+            android:textSize="12sp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_check_long_names"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="Detect &amp; handle filenames &gt; 255 UTF-8 bytes"
+            android:textSize="12sp" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Card 4: About This App -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <ImageView
+              android:layout_width="36dp"
+              android:layout_height="36dp"
+              android:src="@drawable/ic_app_logo" />
+
+          <LinearLayout
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:layout_marginStart="12dp"
+              android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+              <TextView
+                  android:id="@+id/txt_about_title"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="About This App"
+                  android:textStyle="bold"
+                  android:textSize="15sp" />
+
+              <TextView
+                  android:id="@+id/txt_about_version"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginStart="8dp"
+                  android:background="?attr/colorSecondaryContainer"
+                  android:paddingStart="6dp"
+                  android:paddingEnd="6dp"
+                  android:paddingTop="1dp"
+                  android:paddingBottom="1dp"
+                  android:fontFamily="monospace"
+                  android:text="Version 0.1.2.0 Release"
+                  android:textSize="10sp"
+                  android:textStyle="bold"
+                  android:textColor="?attr/colorOnSecondaryContainer" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txt_about_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="SyncDroid for Android is the official Material Design 3 wireless companion and mirror/file synchronization client for SyncDroid WinUI."
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+          </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="10dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <TextView
+            android:id="@+id/txt_about_developer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Developer: Yiren Li  •  Open Source under MIT License"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_github"
+              style="@style/Widget.Material3.Button.TextButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="GitHub Repository"
+              android:textSize="12sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_privacy"
+              style="@style/Widget.Material3.Button.TextButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Privacy Policy"
+              android:textSize="12sp" />
+        </LinearLayout>
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+    </LinearLayout>
+
+  </LinearLayout>
+</androidx.core.widget.NestedScrollView>
