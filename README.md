@@ -29,3 +29,13 @@
 ```powershell
 dotnet build "C:\Users\Yiren\SyncDroid-on-Android\SyncDroidAndroid.csproj" -c Release
 ```
+
+## Releasing
+Push a `v*` tag to build both configurations and publish the Release APK to GitHub Releases automatically:
+
+```powershell
+git tag v0.2.0-beta
+git push origin v0.2.0-beta
+```
+
+Tags containing `-` are published as pre-releases. To sign Release builds with a stable key, configure the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`; otherwise CI falls back to a debug key.
