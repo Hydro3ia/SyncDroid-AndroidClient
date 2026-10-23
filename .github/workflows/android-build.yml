@@ -1,0 +1,116 @@
+name: Build Android APKs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PROJECT: SyncDroidAndroid.csproj
+  # Optional release signing. Add these repository secrets to sign the Release
+  # APK with a stable keystore; otherwise .NET Android uses an ephemeral
+  # debug key, which is fine for testing but not for distribution.
+  ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+  ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+  ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.configuration }} APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+            artifact: debug
+          - configuration: Release
+            artifact: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up .NET 10 with Android workload
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+          workloads: android
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+
+      - name: Restore
+        run: dotnet restore "$PROJECT"
+
+      - name: Decode release keystore
+        if: matrix.configuration == 'Release' && env.ANDROID_KEYSTORE_BASE64 != ''
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build ${{ matrix.configuration }} APK
+        shell: bash
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+        run: |
+          signing_args=()
+          if [ "${{ matrix.configuration }}" = "Release" ] && [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            signing_args=(
+              -p:AndroidKeyStore=true
+              -p:AndroidSigningKeyStore="$KEYSTORE_FILE"
+              -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
+              -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
+              -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
+            )
+          fi
+
+          dotnet build "$PROJECT" \
+            -c "${{ matrix.configuration }}" \
+            -t:Rebuild \
+            --no-restore \
+            -p:JavaSdkDirectory="$JAVA_HOME" \
+            -p:AndroidSdkDirectory="${ANDROID_SDK_ROOT:-$ANDROID_HOME}" \
+            "${signing_args[@]}"
+
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          apk="bin/${{ matrix.configuration }}/net10.0-android/com.syncdroid.client-Signed.apk"
+          apksigner_bin="$(find "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/build-tools" -name apksigner -type f | sort -V | tail -n1)"
+          "$apksigner_bin" verify --print-certs "$apk"
+
+      - name: Collect APK
+        run: |
+          mkdir -p artifacts
+          cp bin/${{ matrix.configuration }}/net10.0-android/*-Signed.apk artifacts/SyncDroid-${{ matrix.artifact }}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SyncDroid-${{ matrix.artifact }}-${{ github.sha }}
+          path: artifacts/SyncDroid-${{ matrix.artifact }}.apk
+          if-no-files-found: error
+          retention-days: 14
