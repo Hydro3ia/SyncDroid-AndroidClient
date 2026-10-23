@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
+
+  <ImageView
+      android:id="@+id/img_browser_icon"
+      android:layout_width="22dp"
+      android:layout_height="22dp"
+      android:src="@drawable/ic_folder" />
+
+  <TextView
+      android:id="@+id/txt_browser_entry_name"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:layout_marginStart="10dp"
+      android:textSize="13sp"
+      android:singleLine="true"
+      android:ellipsize="middle" />
+
+  <TextView
+      android:id="@+id/txt_browser_entry_meta"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="8dp"
+      android:fontFamily="monospace"
+      android:textSize="11sp"
+      android:textColor="?attr/colorOnSurfaceVariant" />
+</LinearLayout>

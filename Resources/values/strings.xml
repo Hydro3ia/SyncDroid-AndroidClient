@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">SyncDroid</string>
+  <string name="nav_mirror_sync">Mirror Sync</string>
+  <string name="nav_file_transfer">Transfer</string>
+  <string name="nav_companion">Companion</string>
+  <string name="nav_settings">Settings</string>
+</resources>

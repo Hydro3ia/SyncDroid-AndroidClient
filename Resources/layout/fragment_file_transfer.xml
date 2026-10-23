@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:id="@+id/layout_tx_root"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="12dp">
+
+    <LinearLayout
+        android:id="@+id/layout_tx_columns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+      <LinearLayout
+          android:id="@+id/pane_tx_left"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+        <!-- Card 1: Direction & Conflict Strategy -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:padding="14dp">
+
+            <TextView
+                android:id="@+id/txt_tx_mode_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Direct File &amp; Folder Transfer"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/txt_tx_mode_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Send individual files or folders without deleting existing files in destination."
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggle_transfer_dir"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                app:checkedButton="@+id/btn_tx_android_to_pc">
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_tx_android_to_pc"
+                  style="?attr/materialButtonOutlinedStyle"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:text="Android ➔ Device"
+                  android:textSize="12sp" />
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/btn_tx_pc_to_android"
+                  style="?attr/materialButtonOutlinedStyle"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1"
+                  android:text="Device ➔ Android"
+                  android:textSize="12sp" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <TextView
+            android:id="@+id/txt_conflict_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="When file already exists:"
+            android:textStyle="bold"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/toggle_conflict_policy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            app:singleSelection="true"
+            app:selectionRequired="true"
+            app:checkedButton="@+id/btn_conflict_skip">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_conflict_skip"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Skip Same Size"
+              android:textSize="11sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_conflict_overwrite"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Overwrite"
+              android:textSize="11sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_conflict_rename"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Keep Both"
+              android:textSize="11sp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Card 2: Transfer Queue -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <TextView
+              android:id="@+id/txt_queue_header"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Transfer Queue (Files &amp; Folders)"
+              android:textStyle="bold"
+              android:textSize="13sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_clear_queue"
+              style="@style/Widget.Material3.Button.TextButton"
+              android:layout_width="wrap_content"
+              android:layout_height="34dp"
+              android:text="Clear Queue"
+              android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_add_file"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="+ Add File"
+              android:textSize="12sp"
+              app:icon="@drawable/ic_file" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_add_folder"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:layout_marginStart="8dp"
+              android:text="+ Add Folder"
+              android:textSize="12sp"
+              app:icon="@drawable/ic_folder" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/txt_queue_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:padding="16dp"
+            android:background="?attr/colorSurfaceVariant"
+            android:text="No files or folders in queue. Tap '+ Add File' or '+ Add Folder' above."
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_transfer_queue"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:scrollbars="vertical" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+
+      <LinearLayout
+          android:id="@+id/pane_tx_right"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+        <!-- Card 3: Target Folder & Start Transfer -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="14dp">
+
+        <TextView
+            android:id="@+id/txt_tx_target_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Target Destination Folder (Device)"
+            android:textStyle="bold"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <com.google.android.material.textfield.TextInputLayout
+              android:id="@+id/til_tx_target"
+              style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/input_tx_target_path"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri"
+                android:textSize="13sp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp" />
+          </com.google.android.material.textfield.TextInputLayout>
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_browse_tx_target"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Browse..."
+              android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_start_transfer"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Start Transfer"
+              android:textSize="13sp"
+              app:icon="@drawable/ic_swap_horiz" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_cancel_transfer"
+              style="?attr/materialButtonOutlinedStyle"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Cancel"
+              android:textSize="13sp" />
+
+          <View
+              android:layout_width="0dp"
+              android:layout_height="1dp"
+              android:layout_weight="1" />
+
+          <TextView
+              android:id="@+id/txt_tx_status"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="Ready"
+              android:textSize="12sp"
+              android:textStyle="bold" />
+
+          <TextView
+              android:id="@+id/txt_tx_percent"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="6dp"
+              android:background="?attr/colorSecondaryContainer"
+              android:paddingStart="6dp"
+              android:paddingEnd="6dp"
+              android:paddingTop="2dp"
+              android:paddingBottom="2dp"
+              android:fontFamily="monospace"
+              android:text="0%"
+              android:textSize="12sp"
+              android:textStyle="bold"
+              android:textColor="?attr/colorOnSecondaryContainer" />
+        </LinearLayout>
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/progress_transfer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:max="100"
+            android:progress="0"
+            app:trackCornerRadius="4dp"
+            app:trackThickness="8dp" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+    </LinearLayout>
+
+  </LinearLayout>
+</androidx.core.widget.NestedScrollView>

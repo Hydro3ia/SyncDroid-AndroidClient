@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+  <item
+      android:id="@+id/nav_mirror_sync"
+      android:icon="@drawable/ic_sync"
+      android:title="@string/nav_mirror_sync" />
+  <item
+      android:id="@+id/nav_file_transfer"
+      android:icon="@drawable/ic_swap_horiz"
+      android:title="@string/nav_file_transfer" />
+  <item
+      android:id="@+id/nav_companion"
+      android:icon="@drawable/ic_devices"
+      android:title="@string/nav_companion" />
+  <item
+      android:id="@+id/nav_settings"
+      android:icon="@drawable/ic_settings"
+      android:title="@string/nav_settings" />
+</menu>

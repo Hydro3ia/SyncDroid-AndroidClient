@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+  <LinearLayout
+      android:id="@+id/layout_companion_root"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="12dp">
+
+    <LinearLayout
+        android:id="@+id/layout_companion_columns"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+      <LinearLayout
+          android:id="@+id/pane_companion_left"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+    <!-- Card 1: This Android Device Companion Server -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <ImageView
+              android:layout_width="24dp"
+              android:layout_height="24dp"
+              android:src="@drawable/ic_phone_android" />
+
+          <LinearLayout
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:layout_marginStart="10dp"
+              android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txt_server_card_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Android Wireless Companion Server"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/txt_server_card_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Allow SyncDroid WinUI on Windows PC to discover and sync with this phone over LAN"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+          </LinearLayout>
+
+          <com.google.android.material.materialswitch.MaterialSwitch
+              android:id="@+id/switch_companion_server"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:checked="true" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorSurfaceVariant"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+          <TextView
+              android:id="@+id/txt_device_name_info"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:fontFamily="monospace"
+              android:text="Device: Android"
+              android:textSize="12sp"
+              android:textStyle="bold" />
+
+          <TextView
+              android:id="@+id/txt_local_ips"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="4dp"
+              android:fontFamily="monospace"
+              android:text="LAN IP: 192.168.1.x : 45821"
+              android:textSize="12sp"
+              android:textIsSelectable="true" />
+
+          <TextView
+              android:id="@+id/txt_pairing_code"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="4dp"
+              android:fontFamily="monospace"
+              android:text="Pairing Token: Open LAN / Auto-Discovery (UDP 45820)"
+              android:textSize="12sp" />
+        </LinearLayout>
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+
+      <LinearLayout
+          android:id="@+id/pane_companion_right"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical">
+
+    <!-- Card 2: Connect to Windows PC Companion -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="?attr/colorOutlineVariant">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <ImageView
+              android:layout_width="24dp"
+              android:layout_height="24dp"
+              android:src="@drawable/ic_computer" />
+
+          <LinearLayout
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:layout_marginStart="10dp"
+              android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txt_pc_connect_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Connect to Windows PC"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/txt_pc_connect_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Connect to SyncDroid WinUI Companion on your PC to initiate sync or file transfer from phone"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+          </LinearLayout>
+        </LinearLayout>
+
+        <!-- Current Connection Status Box -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="?attr/colorSecondaryContainer"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="10dp">
+
+          <TextView
+              android:id="@+id/txt_connected_pc_info"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:fontFamily="monospace"
+              android:text="Status: Disconnected"
+              android:textSize="12sp"
+              android:textStyle="bold"
+              android:textColor="?attr/colorOnSecondaryContainer" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_disconnect_pc"
+              style="@style/Widget.Material3.Button.TextButton"
+              android:layout_width="wrap_content"
+              android:layout_height="34dp"
+              android:text="Disconnect"
+              android:textSize="11sp"
+              android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Manual IP:Port Input -->
+        <TextView
+            android:id="@+id/txt_manual_ip_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="PC IP Address &amp; Port (e.g. 192.168.1.100:45821):"
+            android:textStyle="bold"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <com.google.android.material.textfield.TextInputLayout
+              android:id="@+id/til_pc_endpoint"
+              style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/input_pc_endpoint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textUri"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp" />
+          </com.google.android.material.textfield.TextInputLayout>
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_connect_pc"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginStart="8dp"
+              android:text="Connect"
+              android:textSize="12sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="10dp"
+            android:background="?attr/colorOutlineVariant" />
+
+        <!-- Auto-Discovery Header & List -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+          <TextView
+              android:id="@+id/txt_discovered_header"
+              android:layout_width="0dp"
+              android:layout_height="wrap_content"
+              android:layout_weight="1"
+              android:text="Discovered Devices on LAN"
+              android:textStyle="bold"
+              android:textSize="13sp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/btn_scan_lan"
+              style="@style/Widget.Material3.Button.TonalButton"
+              android:layout_width="wrap_content"
+              android:layout_height="36dp"
+              android:text="Scan LAN"
+              android:textSize="12sp"
+              app:icon="@drawable/ic_refresh" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/txt_discovered_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="?attr/colorSurfaceVariant"
+            android:gravity="center"
+            android:padding="16dp"
+            android:text="Tap 'Scan LAN' to search for SyncDroid WinUI on your Wi-Fi network, or enter PC IP above."
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_discovered_pcs"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+      </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+      </LinearLayout>
+    </LinearLayout>
+
+  </LinearLayout>
+</androidx.core.widget.NestedScrollView>
