@@ -1,0 +1,75 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  PROJECT: SyncDroidAndroid.csproj
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up .NET 10 with Android workload
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+          workloads: android
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+
+      - name: Restore
+        run: dotnet restore "$PROJECT"
+
+      - name: Build Debug APK
+        run: >
+          dotnet build "$PROJECT"
+          -c Debug
+          -t:Rebuild
+          --no-restore
+          -p:JavaSdkDirectory="$JAVA_HOME"
+          -p:AndroidSdkDirectory="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+
+      - name: Collect APK
+        run: |
+          mkdir -p artifacts
+          cp bin/Debug/net10.0-android/*-Signed.apk artifacts/SyncDroid-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: SyncDroid-debug-${{ github.sha }}
+          path: artifacts/SyncDroid-debug.apk
+          if-no-files-found: error
+          retention-days: 14
