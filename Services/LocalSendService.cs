@@ -81,6 +81,8 @@ public sealed class LocalSendService
         };
     }
 
+    public bool IsAccessForbiddenError { get; private set; }
+
     public void Start(int port = DefaultPort)
     {
         Stop();
@@ -94,6 +96,7 @@ public sealed class LocalSendService
         var token = _serverCts.Token;
 
         AcquireMulticastLock();
+        IsAccessForbiddenError = false;
 
         try
         {
@@ -111,6 +114,16 @@ public sealed class LocalSendService
         catch (Exception ex)
         {
             IsRunning = false;
+            string msg = ex.Message.ToLowerInvariant();
+            if (ex is HttpListenerException hlex && (hlex.ErrorCode == 5 || hlex.ErrorCode == 32 || hlex.ErrorCode == 183))
+            {
+                IsAccessForbiddenError = true;
+            }
+            else if (msg.Contains("forbidden") || msg.Contains("access") || msg.Contains("访问权限") || msg.Contains("already in use"))
+            {
+                IsAccessForbiddenError = true;
+            }
+
             SyncStateService.Instance.AddLog($"[LocalSend] Could not bind port {ListeningPort}: {ex.Message}");
         }
     }
@@ -343,7 +356,8 @@ public sealed class LocalSendService
                 }
                 await WriteJsonAsync(res, BuildLocalInfo());
             }
-            else if (path.Equals("/api/localsend/v2/prepare-upload", StringComparison.OrdinalIgnoreCase) &&
+            else if ((path.Equals("/api/localsend/v2/prepare-upload", StringComparison.OrdinalIgnoreCase) ||
+                      path.Equals("/api/localsend/v1/prepare-upload", StringComparison.OrdinalIgnoreCase)) &&
                      req.HttpMethod == "POST")
             {
                 using var sr = new StreamReader(req.InputStream, Encoding.UTF8);
@@ -363,13 +377,87 @@ public sealed class LocalSendService
                 }
 
                 var settings = SettingsService.Load();
+                var loc = LocalizationService.Instance;
+                var state = SyncStateService.Instance;
+
                 string receiveDir = !string.IsNullOrWhiteSpace(settings.LocalSendReceiveDir)
                     ? settings.LocalSendReceiveDir
                     : (!string.IsNullOrWhiteSpace(settings.DirectTransfer_AndroidTargetDir)
                         ? settings.DirectTransfer_AndroidTargetDir
                         : "/storage/emulated/0/Download/SyncDroid");
 
+                string senderAlias = string.IsNullOrWhiteSpace(prepReq.Info?.Alias) ? remoteIp : prepReq.Info!.Alias;
+                string senderFp = prepReq.Info?.Fingerprint ?? "";
+                int senderPort = prepReq.Info?.Port > 0 ? prepReq.Info.Port : DefaultPort;
+                bool isTrusted = SettingsService.IsDeviceTrusted("LocalSend", senderFp, remoteIp, senderAlias);
+
                 string sessionId = Guid.NewGuid().ToString("N");
+                var receivedItems = new List<ReceivedFileItem>();
+                foreach (var kvp in prepReq.Files)
+                {
+                    string safeRel = SanitizeIncomingRelativePath(kvp.Value.FileName);
+                    string targetPath = $"{receiveDir.TrimEnd('/', '\\')}/{safeRel}";
+                    receivedItems.Add(new ReceivedFileItem
+                    {
+                        Id = kvp.Key,
+                        FileName = kvp.Value.FileName,
+                        SenderName = senderAlias,
+                        Protocol = "LocalSend",
+                        Size = kvp.Value.Size,
+                        SizeDisplay = FileHashHelper.FormatByteSize(kvp.Value.Size),
+                        SavedPath = targetPath,
+                        StatusText = isTrusted ? loc.ReceiveStatusWaitingUpload : loc.ReceiveStatusPending,
+                        ProgressPercent = 0
+                    });
+                }
+
+                var tcs = !isTrusted
+                    ? new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
+                    : null;
+
+                var sessionArgs = new IncomingTransferSessionEventArgs
+                {
+                    SessionId = sessionId,
+                    SenderName = senderAlias,
+                    SenderIp = remoteIp,
+                    Protocol = "LocalSend",
+                    SaveDirectory = receiveDir,
+                    RequiresConfirmation = !isTrusted,
+                    AppendToExistingSession = false,
+                    Files = receivedItems,
+                    ConfirmationTcs = tcs
+                };
+
+                state.HandleIncomingSession(sessionArgs);
+
+                if (!isTrusted && tcs != null)
+                {
+                    state.AddLog($"[LocalSend] Incoming transfer request from '{senderAlias}' ({prepReq.Files.Count} file(s)) — waiting for user confirmation...");
+                    bool accepted = false;
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                    try
+                    {
+                        using (timeoutCts.Token.Register(() => tcs.TrySetResult(false)))
+                        {
+                            accepted = await tcs.Task;
+                        }
+                    }
+                    catch
+                    {
+                        accepted = false;
+                    }
+
+                    if (!accepted)
+                    {
+                        state.AddLog($"[LocalSend] Declined incoming transfer request from '{senderAlias}'.");
+                        res.StatusCode = 403;
+                        await WriteJsonAsync(res, new { error = "Declined by user" });
+                        return;
+                    }
+
+                    SettingsService.AddTrustedDevice("LocalSend", senderAlias, $"{remoteIp}:{senderPort}", senderFp);
+                }
+
                 var tokens = new Dictionary<string, string>();
                 foreach (var kvp in prepReq.Files)
                 {
@@ -379,16 +467,19 @@ public sealed class LocalSendService
                 var session = new LocalSendUploadSession
                 {
                     SessionId = sessionId,
-                    SenderInfo = prepReq.Info,
+                    SenderInfo = prepReq.Info ?? new LocalSendInfoDto(),
                     Files = prepReq.Files,
                     Tokens = tokens,
                     ReceiveDirectory = receiveDir,
-                    CreatedUtc = DateTime.UtcNow
+                    CreatedUtc = DateTime.UtcNow,
+                    TotalFiles = prepReq.Files.Count,
+                    TotalBytes = prepReq.Files.Values.Sum(f => f.Size),
+                    ProcessedFiles = 0,
+                    CompletedBytes = 0
                 };
                 _uploadSessions[sessionId] = session;
 
-                string senderAlias = string.IsNullOrWhiteSpace(prepReq.Info.Alias) ? remoteIp : prepReq.Info.Alias;
-                SyncStateService.Instance.AddLog($"[LocalSend] Incoming transfer from '{senderAlias}' ({prepReq.Files.Count} file(s)) ➔ {receiveDir}");
+                state.AddLog($"[LocalSend] Accepted incoming transfer session from '{senderAlias}' ({prepReq.Files.Count} file(s)) ➔ {receiveDir}");
 
                 var prepResp = new LocalSendPrepareUploadResponseDto
                 {
@@ -397,7 +488,8 @@ public sealed class LocalSendService
                 };
                 await WriteJsonAsync(res, prepResp);
             }
-            else if (path.Equals("/api/localsend/v2/upload", StringComparison.OrdinalIgnoreCase) &&
+            else if ((path.Equals("/api/localsend/v2/upload", StringComparison.OrdinalIgnoreCase) ||
+                      path.Equals("/api/localsend/v1/upload", StringComparison.OrdinalIgnoreCase)) &&
                      req.HttpMethod == "POST")
             {
                 string sessionId = req.QueryString["sessionId"] ?? "";
@@ -414,6 +506,9 @@ public sealed class LocalSendService
                     return;
                 }
 
+                var settings = SettingsService.Load();
+                var state = SyncStateService.Instance;
+
                 string safeRelPath = SanitizeIncomingRelativePath(fileDto.FileName);
                 string rawTargetPath = $"{session.ReceiveDirectory.TrimEnd('/', '\\')}/{safeRelPath}";
                 string finalPath = CompanionNetworkService.ResolveConflictTargetFilePath(
@@ -426,14 +521,45 @@ public sealed class LocalSendService
                 Directory.CreateDirectory(parentDir);
 
                 string tempPartPath = Path.Combine(parentDir, $".syncdroid_{Guid.NewGuid():N}.part");
+                long bytesReceived = 0;
+                double elapsedSec = 0;
+                long baseCompleted = Interlocked.Read(ref session.CompletedBytes);
+                int currentIdx = Math.Min(session.TotalFiles, session.ProcessedFiles + 1);
+                int totalFiles = Math.Max(1, session.TotalFiles);
+
                 try
                 {
-                    await using (var fs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+                    state.UpdateIncomingFileProgress(sessionId, fileId, 0, "");
+                    await using (var rawFs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+                    await using (var trackedFs = new ProgressTrackingStream(rawFs, (inFlightBytes, liveSpeed) =>
                     {
-                        await req.InputStream.CopyToAsync(fs);
+                        double filePct = FileHashHelper.CalculateOverallPercent(inFlightBytes, fileDto.Size, 0, 1);
+                        double overallPct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, session.TotalBytes, session.ProcessedFiles, totalFiles);
+                        state.UpdateIncomingFileProgress(sessionId, fileId, filePct, liveSpeed);
+                        state.AddLog($"Transferring: {safeRelPath} | Speed: {liveSpeed} | Overall: {overallPct:F1}% ({currentIdx}/{totalFiles})");
+                    }))
+                    {
+                        await req.InputStream.CopyToAsync(trackedFs, 65536);
+                        await trackedFs.FlushAsync();
+                        bytesReceived = trackedFs.TotalBytesTransferred;
+                        elapsedSec = trackedFs.ElapsedSeconds;
                     }
 
                     File.Move(tempPartPath, finalPath, overwrite: true);
+
+                    if (settings.VerifyHashAfterTransfer && !string.IsNullOrWhiteSpace(fileDto.Sha256))
+                    {
+                        string localSha256 = await FileHashHelper.ComputeSha256Async(finalPath);
+                        if (!string.Equals(fileDto.Sha256, localSha256, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { File.Delete(finalPath); } catch { }
+                            state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: false, failed: true);
+                            state.AddLog($"[LocalSend] Error: SHA-256 hash mismatch for {finalPath}. File discarded.");
+                            res.StatusCode = 400;
+                            res.Close();
+                            return;
+                        }
+                    }
 
                     if (!string.IsNullOrWhiteSpace(fileDto.Metadata?.Modified) &&
                         DateTimeOffset.TryParse(fileDto.Metadata.Modified, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dtoTime))
@@ -445,11 +571,22 @@ public sealed class LocalSendService
                         catch { }
                     }
 
+                    int doneFiles = Interlocked.Increment(ref session.ProcessedFiles);
+                    long doneBytes = Interlocked.Add(ref session.CompletedBytes, fileDto.Size > 0 ? fileDto.Size : bytesReceived);
+                    double donePct = FileHashHelper.CalculateOverallPercent(doneBytes, session.TotalBytes, doneFiles, totalFiles);
+                    string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesReceived, elapsedSec);
+
                     MediaScannerHelper.NotifyFilesChanged(Android.App.Application.Context, new[] { finalPath });
-                    SyncStateService.Instance.AddLog($"[LocalSend] Saved: {finalPath} ({TransferQueueItem.FormatSize(fileDto.Size)})");
+                    state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: false, failed: false);
+                    state.AddLog($"Transferred: {safeRelPath} ({FileHashHelper.FormatByteSize(bytesReceived)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({doneFiles}/{totalFiles})");
 
                     res.StatusCode = 200;
                     res.Close();
+                }
+                catch
+                {
+                    state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: false, failed: true);
+                    throw;
                 }
                 finally
                 {
@@ -459,7 +596,8 @@ public sealed class LocalSendService
                     }
                 }
             }
-            else if (path.Equals("/api/localsend/v2/cancel", StringComparison.OrdinalIgnoreCase) &&
+            else if ((path.Equals("/api/localsend/v2/cancel", StringComparison.OrdinalIgnoreCase) ||
+                      path.Equals("/api/localsend/v1/cancel", StringComparison.OrdinalIgnoreCase)) &&
                      req.HttpMethod == "POST")
             {
                 string sessionId = req.QueryString["sessionId"] ?? "";
@@ -540,7 +678,6 @@ public sealed class LocalSendService
                 if (dto == null)
                     continue;
 
-                // Also register ourselves with the peer
                 try
                 {
                     var selfJson = JsonSerializer.Serialize(BuildLocalInfo(announce: false), JsonOptions);
@@ -587,6 +724,8 @@ public sealed class LocalSendService
         var expandedFiles = new List<(string FileId, FileInfo LocalFile, LocalSendFileDto Dto)>();
         int idx = 0;
 
+        var settings = SettingsService.Load();
+
         foreach (var item in queue)
         {
             token.ThrowIfCancellationRequested();
@@ -613,6 +752,7 @@ public sealed class LocalSendService
                     FileName = safeName,
                     Size = fi.Length,
                     FileType = "application/octet-stream",
+                    Sha256 = settings.VerifyHashAfterTransfer ? (await FileHashHelper.ComputeSha256Async(fi.FullName, token)) : null,
                     Metadata = new LocalSendFileMetadataDto
                     {
                         Modified = fi.LastWriteTimeUtc.ToString("O")
@@ -646,6 +786,7 @@ public sealed class LocalSendService
                         FileName = combinedRel,
                         Size = fi.Length,
                         FileType = "application/octet-stream",
+                        Sha256 = settings.VerifyHashAfterTransfer ? (await FileHashHelper.ComputeSha256Async(fi.FullName, token)) : null,
                         Metadata = new LocalSendFileMetadataDto
                         {
                             Modified = fi.LastWriteTimeUtc.ToString("O")
@@ -700,7 +841,9 @@ public sealed class LocalSendService
         }
 
         string sessionId = sessionDto.SessionId;
-        int total = expandedFiles.Count;
+        int totalFiles = expandedFiles.Count;
+        long totalBytes = expandedFiles.Sum(x => x.LocalFile.Length);
+        long completedBytes = 0;
         int completed = 0;
 
         try
@@ -711,24 +854,44 @@ public sealed class LocalSendService
 
                 if (!sessionDto.Files.TryGetValue(entry.FileId, out var fileToken) || string.IsNullOrWhiteSpace(fileToken))
                 {
-                    state.AddLog($"[LocalSend] Skipped by receiver: {entry.Dto.FileName}");
                     completed++;
-                    state.UpdateProgress((completed * 100) / total);
+                    completedBytes += entry.LocalFile.Length;
+                    double skipPct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, completed, totalFiles);
+                    state.AddLog($"Skipped (Identical): {entry.Dto.FileName} | Overall: {skipPct:F1}% ({completed}/{totalFiles})");
+                    state.UpdateProgress((int)Math.Round(skipPct));
                     continue;
                 }
 
-                state.AddLog($"[LocalSend] Sending: {entry.Dto.FileName} ({TransferQueueItem.FormatSize(entry.LocalFile.Length)})");
+                long baseCompleted = completedBytes;
+                int nextIdx = completed + 1;
+                state.AddLog($"[LocalSend] Sending: {entry.Dto.FileName} ({FileHashHelper.FormatByteSize(entry.LocalFile.Length)})");
                 string uploadUrl = $"{baseUrl}/api/localsend/v2/upload?sessionId={Uri.EscapeDataString(sessionId)}&fileId={Uri.EscapeDataString(entry.FileId)}&token={Uri.EscapeDataString(fileToken)}";
 
-                await using var fs = new FileStream(entry.LocalFile.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
-                using var streamContent = new StreamContent(fs, 65536);
-                streamContent.Headers.ContentLength = entry.LocalFile.Length;
+                long bytesSent = 0;
+                double elapsedSec = 0;
+                await using (var rawFs = new FileStream(entry.LocalFile.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 65536, useAsync: true))
+                await using (var trackedStream = new ProgressTrackingStream(rawFs, (inFlightBytes, liveSpeed) =>
+                {
+                    double livePct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, totalBytes, completed, totalFiles);
+                    state.UpdateProgress((int)Math.Round(livePct));
+                    state.AddLog($"Transferring: {entry.Dto.FileName} | Speed: {liveSpeed} | Overall: {livePct:F1}% ({nextIdx}/{totalFiles})");
+                }))
+                using (var streamContent = new StreamContent(trackedStream, 65536))
+                {
+                    streamContent.Headers.ContentLength = entry.LocalFile.Length;
 
-                using var upResp = await _httpClient.PostAsync(uploadUrl, streamContent, token);
-                upResp.EnsureSuccessStatusCode();
+                    using var upResp = await _httpClient.PostAsync(uploadUrl, streamContent, token);
+                    upResp.EnsureSuccessStatusCode();
+                    bytesSent = trackedStream.TotalBytesTransferred;
+                    elapsedSec = trackedStream.ElapsedSeconds;
+                }
 
                 completed++;
-                state.UpdateProgress((completed * 100) / total);
+                completedBytes += entry.LocalFile.Length;
+                double donePct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, completed, totalFiles);
+                string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesSent > 0 ? bytesSent : entry.LocalFile.Length, elapsedSec);
+                state.AddLog($"Transferred: {entry.Dto.FileName} ({FileHashHelper.FormatByteSize(entry.LocalFile.Length)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({completed}/{totalFiles})");
+                state.UpdateProgress((int)Math.Round(donePct));
             }
         }
         catch (OperationCanceledException)

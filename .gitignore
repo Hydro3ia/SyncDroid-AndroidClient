@@ -6,3 +6,6 @@ obj/
 *.suo
 *.apk
 *.aab
+
+# Local one-off asset generation helper (absolute paths)
+make_fg.cs

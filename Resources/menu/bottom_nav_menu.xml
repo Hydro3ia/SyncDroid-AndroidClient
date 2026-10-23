@@ -9,6 +9,10 @@
       android:icon="@drawable/ic_swap_horiz"
       android:title="@string/nav_file_transfer" />
   <item
+      android:id="@+id/nav_receive"
+      android:icon="@drawable/ic_download"
+      android:title="@string/nav_receive" />
+  <item
       android:id="@+id/nav_companion"
       android:icon="@drawable/ic_devices"
       android:title="@string/nav_companion" />

@@ -57,6 +57,8 @@ public class MirrorSyncEngine
 
         var touchedLocalPaths = new List<string>();
         int totalFiles = remoteFiles.Count;
+        long totalBytes = remoteFiles.Sum(f => f.Size);
+        long completedBytes = 0;
         int processed = 0;
 
         foreach (var remoteFile in remoteFiles)
@@ -66,8 +68,11 @@ public class MirrorSyncEngine
             string relPath = remoteFile.RelativePath.Replace('\\', '/');
             if (checkLongFileNames && FileNameLengthHelper.IsFileNameTooLong(relPath, out int byteCount))
             {
-                state.AddLog($"Skipped (Filename > 255 UTF-8 bytes [{byteCount} B]): {relPath}");
                 processed++;
+                completedBytes += remoteFile.Size;
+                double skipPct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                state.AddLog($"Skipped (Filename > 255 UTF-8 bytes [{byteCount} B]): {relPath} | Overall: {skipPct:F1}% ({processed}/{totalFiles})");
+                state.UpdateProgress((int)Math.Round(skipPct));
                 continue;
             }
 
@@ -79,28 +84,41 @@ public class MirrorSyncEngine
                 if (existingLocal.Size == remoteFile.Size)
                 {
                     shouldPull = false;
-                    state.AddLog($"Skipped (Identical): {relPath}");
+                    processed++;
+                    completedBytes += remoteFile.Size;
+                    double skipPct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                    state.AddLog($"Skipped (Identical): {relPath} | Overall: {skipPct:F1}% ({processed}/{totalFiles})");
+                    state.UpdateProgress((int)Math.Round(skipPct));
                 }
             }
 
             if (shouldPull)
             {
-                state.AddLog($"Pulling from PC: {relPath} ({TransferQueueItem.FormatSize(remoteFile.Size)})");
-                await net.PullFileFromPcAsync(
+                long baseCompleted = completedBytes;
+                int nextIdx = processed + 1;
+                state.AddLog($"Pulling from PC: {relPath} ({FileHashHelper.FormatByteSize(remoteFile.Size)})");
+                var (bytesPulled, elapsedSec, _) = await net.PullFileFromPcAsync(
                     remoteFile.FullPath,
                     targetLocalPath,
                     remoteFile.Size,
                     remoteFile.LastWriteTimeUtcTicks,
                     ConflictPolicy.Overwrite,
-                    token);
+                    token,
+                    (inFlightBytes, liveSpeed) =>
+                    {
+                        double livePct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, totalBytes, processed, totalFiles);
+                        state.UpdateProgress((int)Math.Round(livePct));
+                        state.AddLog($"Transferring: {relPath} | Speed: {liveSpeed} | Overall: {livePct:F1}% ({nextIdx}/{totalFiles})");
+                    });
                 touchedLocalPaths.Add(targetLocalPath);
-            }
 
-            processed++;
-            int progress = isMirMode
-                ? (processed * 70) / (totalFiles > 0 ? totalFiles : 1)
-                : (processed * 100) / (totalFiles > 0 ? totalFiles : 1);
-            state.UpdateProgress(progress);
+                processed++;
+                completedBytes += remoteFile.Size;
+                double donePct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesPulled > 0 ? bytesPulled : remoteFile.Size, elapsedSec);
+                state.AddLog($"Transferred: {relPath} ({FileHashHelper.FormatByteSize(remoteFile.Size)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                state.UpdateProgress((int)Math.Round(donePct));
+            }
         }
 
         if (isMirMode)
@@ -208,6 +226,8 @@ public class MirrorSyncEngine
             StringComparer.OrdinalIgnoreCase);
 
         int totalFiles = localFiles.Count;
+        long totalBytes = localFiles.Sum(f => f.Size);
+        long completedBytes = 0;
         int processed = 0;
         var syncedRelPathsForMir = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -223,8 +243,11 @@ public class MirrorSyncEngine
 
             if (checkLongFileNames && FileNameLengthHelper.IsFileNameTooLong(relPath, out int byteCount))
             {
-                state.AddLog($"Skipped (Filename > 255 UTF-8 bytes [{byteCount} B]): {relPath}");
                 processed++;
+                completedBytes += localEntry.Size;
+                double skipPct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                state.AddLog($"Skipped (Filename > 255 UTF-8 bytes [{byteCount} B]): {relPath} | Overall: {skipPct:F1}% ({processed}/{totalFiles})");
+                state.UpdateProgress((int)Math.Round(skipPct));
                 continue;
             }
 
@@ -236,23 +259,40 @@ public class MirrorSyncEngine
                 if (existingRemote.Size == localEntry.Size)
                 {
                     shouldPush = false;
-                    state.AddLog($"Skipped (Identical): {relPath}");
+                    processed++;
+                    completedBytes += localEntry.Size;
+                    double skipPct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                    state.AddLog($"Skipped (Identical): {relPath} | Overall: {skipPct:F1}% ({processed}/{totalFiles})");
+                    state.UpdateProgress((int)Math.Round(skipPct));
                 }
             }
 
             if (shouldPush)
             {
+                long baseCompleted = completedBytes;
+                int nextIdx = processed + 1;
                 string targetRemotePath = $"{pcPath.Replace('/', '\\')}\\{relPath.Replace('/', '\\')}";
-                state.AddLog($"Pushing to PC: {relPath} ({TransferQueueItem.FormatSize(localEntry.Size)})");
+                state.AddLog($"Pushing to PC: {relPath} ({FileHashHelper.FormatByteSize(localEntry.Size)})");
                 var fi = new FileInfo(localEntry.FullPath);
-                await net.PushFileToPcAsync(fi, targetRemotePath, ConflictPolicy.Overwrite, token);
-            }
+                var (bytesSent, elapsedSec, _) = await net.PushFileToPcAsync(
+                    fi,
+                    targetRemotePath,
+                    ConflictPolicy.Overwrite,
+                    token,
+                    (inFlightBytes, liveSpeed) =>
+                    {
+                        double livePct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, totalBytes, processed, totalFiles);
+                        state.UpdateProgress((int)Math.Round(livePct));
+                        state.AddLog($"Transferring: {relPath} | Speed: {liveSpeed} | Overall: {livePct:F1}% ({nextIdx}/{totalFiles})");
+                    });
 
-            processed++;
-            int progress = isMirMode
-                ? (processed * 70) / (totalFiles > 0 ? totalFiles : 1)
-                : (processed * 100) / (totalFiles > 0 ? totalFiles : 1);
-            state.UpdateProgress(progress);
+                processed++;
+                completedBytes += localEntry.Size;
+                double donePct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesSent > 0 ? bytesSent : localEntry.Size, elapsedSec);
+                state.AddLog($"Transferred: {relPath} ({FileHashHelper.FormatByteSize(localEntry.Size)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                state.UpdateProgress((int)Math.Round(donePct));
+            }
         }
 
         if (isMirMode)
@@ -331,18 +371,14 @@ public class MirrorSyncEngine
             return;
         }
 
-        var touchedLocalFiles = new List<string>();
-        int totalItems = queue.Count;
-        int currentItemIdx = 0;
-
-        foreach (var item in queue)
+        if (isAndroidToPc)
         {
-            token.ThrowIfCancellationRequested();
+            string cleanPcDir = targetDir.Trim().TrimEnd('/', '\\').Replace('/', '\\');
+            var pushPlan = new List<(FileInfo LocalFile, string RelativeDestPath, string RemoteTargetPath)>();
 
-            if (isAndroidToPc)
+            foreach (var item in queue)
             {
-                string cleanPcDir = targetDir.Trim().TrimEnd('/', '\\').Replace('/', '\\');
-
+                token.ThrowIfCancellationRequested();
                 if (!item.IsDirectory)
                 {
                     var fi = new FileInfo(item.FullPath);
@@ -351,11 +387,9 @@ public class MirrorSyncEngine
                         state.AddLog($"Warning: Local file not found: {item.FullPath}");
                         continue;
                     }
-
                     string safeName = FileNameLengthHelper.SanitizeRelativePathForWindows(fi.Name, out _);
                     string remoteTarget = $"{cleanPcDir}\\{safeName}";
-                    state.AddLog($"Sending file to device: {safeName} ({TransferQueueItem.FormatSize(fi.Length)})");
-                    await net.PushFileToPcAsync(fi, remoteTarget, conflictPolicy, token);
+                    pushPlan.Add((fi, safeName, remoteTarget));
                 }
                 else
                 {
@@ -365,66 +399,139 @@ public class MirrorSyncEngine
                         state.AddLog($"Warning: Local folder not found: {item.FullPath}");
                         continue;
                     }
-
                     string folderName = FileNameLengthHelper.SanitizeRelativePathForWindows(di.Name, out _);
                     var manifest = LocalStorageScanner.GetDirectoryTreeManifest(di.FullName);
-                    state.AddLog($"Sending folder '{folderName}' ({manifest.Files.Count} files) to device...");
-
                     foreach (var subFile in manifest.Files)
                     {
-                        token.ThrowIfCancellationRequested();
+                        var fi = new FileInfo(subFile.FullPath);
+                        if (!fi.Exists) continue;
                         string safeRel = FileNameLengthHelper.SanitizeRelativePathForWindows(subFile.RelativePath, out _);
+                        string displayRel = $"{folderName}/{safeRel.Replace('\\', '/')}";
                         string remoteTarget = $"{cleanPcDir}\\{folderName}\\{safeRel.Replace('/', '\\')}";
-                        state.AddLog($"Sending: {folderName}/{safeRel}");
-                        await net.PushFileToPcAsync(new FileInfo(subFile.FullPath), remoteTarget, conflictPolicy, token);
+                        pushPlan.Add((fi, displayRel, remoteTarget));
                     }
                 }
             }
-            else
-            {
-                // Device ➔ Android Direct Transfer
-                string cleanAndroidDir = targetDir.Trim().Replace('\\', '/').TrimEnd('/');
-                Directory.CreateDirectory(cleanAndroidDir);
 
+            int totalFiles = pushPlan.Count;
+            long totalBytes = pushPlan.Sum(x => x.LocalFile.Length);
+            long completedBytes = 0;
+            int processed = 0;
+
+            foreach (var (fi, relPath, remoteTarget) in pushPlan)
+            {
+                token.ThrowIfCancellationRequested();
+                long baseCompleted = completedBytes;
+                int nextIdx = processed + 1;
+
+                state.AddLog($"Sending file to device: {relPath} ({FileHashHelper.FormatByteSize(fi.Length)})");
+                var (bytesSent, elapsedSec, skipped) = await net.PushFileToPcAsync(
+                    fi,
+                    remoteTarget,
+                    conflictPolicy,
+                    token,
+                    (inFlightBytes, liveSpeed) =>
+                    {
+                        double livePct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, totalBytes, processed, totalFiles);
+                        state.UpdateProgress((int)Math.Round(livePct));
+                        state.AddLog($"Transferring: {relPath} | Speed: {liveSpeed} | Overall: {livePct:F1}% ({nextIdx}/{totalFiles})");
+                    });
+
+                processed++;
+                completedBytes += fi.Length;
+                double donePct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+                if (skipped)
+                {
+                    state.AddLog($"Skipped (Identical): {relPath} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                }
+                else
+                {
+                    string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesSent > 0 ? bytesSent : fi.Length, elapsedSec);
+                    state.AddLog($"Transferred: {relPath} ({FileHashHelper.FormatByteSize(fi.Length)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                }
+                state.UpdateProgress((int)Math.Round(donePct));
+            }
+        }
+        else
+        {
+            // Device ➔ Android Direct Transfer
+            string cleanAndroidDir = targetDir.Trim().Replace('\\', '/').TrimEnd('/');
+            Directory.CreateDirectory(cleanAndroidDir);
+
+            var touchedLocalFiles = new List<string>();
+            var pullPlan = new List<(string RemoteFullPath, string RelativeDestPath, string LocalTargetPath, long Size, long MtimeTicks)>();
+
+            foreach (var item in queue)
+            {
+                token.ThrowIfCancellationRequested();
                 if (!item.IsDirectory)
                 {
                     string fileName = Path.GetFileName(item.FullPath.Replace('\\', '/'));
                     string localTarget = $"{cleanAndroidDir}/{fileName}";
-                    state.AddLog($"Pulling file from device: {fileName}");
-                    await net.PullFileFromPcAsync(item.FullPath, localTarget, item.Size > 0 ? item.Size : -1, 0, conflictPolicy, token);
-                    touchedLocalFiles.Add(localTarget);
+                    pullPlan.Add((item.FullPath, fileName, localTarget, item.Size > 0 ? item.Size : 0, 0));
                 }
                 else
                 {
                     string folderName = Path.GetFileName(item.FullPath.TrimEnd('/', '\\').Replace('\\', '/'));
                     var remoteTree = await net.GetRemotePcTreeManifestAsync(item.FullPath, token);
-                    state.AddLog($"Pulling folder '{folderName}' ({remoteTree.Files.Count} files) from device...");
-
                     foreach (var remoteFile in remoteTree.Files)
                     {
-                        token.ThrowIfCancellationRequested();
                         string rel = remoteFile.RelativePath.Replace('\\', '/');
+                        string displayRel = $"{folderName}/{rel}";
                         string localTarget = $"{cleanAndroidDir}/{folderName}/{rel}";
-                        state.AddLog($"Pulling: {folderName}/{rel}");
-                        await net.PullFileFromPcAsync(
-                            remoteFile.FullPath,
-                            localTarget,
-                            remoteFile.Size,
-                            remoteFile.LastWriteTimeUtcTicks,
-                            conflictPolicy,
-                            token);
-                        touchedLocalFiles.Add(localTarget);
+                        pullPlan.Add((remoteFile.FullPath, displayRel, localTarget, remoteFile.Size, remoteFile.LastWriteTimeUtcTicks));
                     }
                 }
             }
 
-            currentItemIdx++;
-            state.UpdateProgress((currentItemIdx * 100) / totalItems);
-        }
+            int totalFiles = pullPlan.Count;
+            long totalBytes = pullPlan.Sum(x => x.Size > 0 ? x.Size : 0);
+            long completedBytes = 0;
+            int processed = 0;
 
-        if (touchedLocalFiles.Count > 0)
-        {
-            MediaScannerHelper.NotifyFilesChanged(Android.App.Application.Context, touchedLocalFiles);
+            foreach (var (remoteFull, relPath, localTarget, expectedSize, mtimeTicks) in pullPlan)
+            {
+                token.ThrowIfCancellationRequested();
+                long baseCompleted = completedBytes;
+                int nextIdx = processed + 1;
+
+                state.AddLog($"Pulling from device: {relPath}");
+                var (bytesPulled, elapsedSec, skipped) = await net.PullFileFromPcAsync(
+                    remoteFull,
+                    localTarget,
+                    expectedSize > 0 ? expectedSize : -1,
+                    mtimeTicks,
+                    conflictPolicy,
+                    token,
+                    (inFlightBytes, liveSpeed) =>
+                    {
+                        double livePct = FileHashHelper.CalculateOverallPercent(baseCompleted + inFlightBytes, totalBytes, processed, totalFiles);
+                        state.UpdateProgress((int)Math.Round(livePct));
+                        state.AddLog($"Transferring: {relPath} | Speed: {liveSpeed} | Overall: {livePct:F1}% ({nextIdx}/{totalFiles})");
+                    });
+
+                processed++;
+                long effectiveSize = expectedSize > 0 ? expectedSize : bytesPulled;
+                completedBytes += effectiveSize;
+                double donePct = FileHashHelper.CalculateOverallPercent(completedBytes, totalBytes, processed, totalFiles);
+
+                if (skipped)
+                {
+                    state.AddLog($"Skipped (Identical): {relPath} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                }
+                else
+                {
+                    touchedLocalFiles.Add(localTarget);
+                    string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesPulled > 0 ? bytesPulled : effectiveSize, elapsedSec);
+                    state.AddLog($"Transferred: {relPath} ({FileHashHelper.FormatByteSize(effectiveSize)}) | Speed: {avgSpeed} | Overall: {donePct:F1}% ({processed}/{totalFiles})");
+                }
+                state.UpdateProgress((int)Math.Round(donePct));
+            }
+
+            if (touchedLocalFiles.Count > 0)
+            {
+                MediaScannerHelper.NotifyFilesChanged(Android.App.Application.Context, touchedLocalFiles);
+            }
         }
 
         state.AddLog(isAndroidToPc

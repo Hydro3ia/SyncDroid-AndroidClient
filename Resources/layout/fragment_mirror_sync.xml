@@ -112,7 +112,7 @@
                   android:layout_width="0dp"
                   android:layout_height="wrap_content"
                   android:layout_weight="1"
-                  android:text="PC ➔ Android"
+                  android:text="Pull (/MIR mode)"
                   android:textSize="12sp" />
 
               <com.google.android.material.button.MaterialButton
@@ -121,7 +121,7 @@
                   android:layout_width="0dp"
                   android:layout_height="wrap_content"
                   android:layout_weight="1"
-                  android:text="Android ➔ PC"
+                  android:text="Push (/MIR mode)"
                   android:textSize="12sp" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
@@ -176,7 +176,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:text="Windows PC Directory"
+                android:text="Target Device Directory"
                 android:textStyle="bold"
                 android:textSize="13sp" />
 
@@ -215,6 +215,7 @@
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:inputType="textUri"
+                  android:hint="/storage/emulated/0/MyFolder or D:\MyFolder"
                   android:textSize="13sp"
                   android:paddingTop="10dp"
                   android:paddingBottom="10dp" />

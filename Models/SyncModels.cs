@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SyncDroidAndroid.Models;
 
@@ -43,7 +44,7 @@ public class CompanionInfoResponse
 {
     public string DeviceName { get; set; } = "";
     public string Platform { get; set; } = "Android";
-    public string Version { get; set; } = "0.1.2.0";
+    public string Version { get; set; } = "0.2.0.0";
     public int ListeningPort { get; set; } = 45821;
     public long FreeSpaceBytes { get; set; }
     public string DefaultStorageRoot { get; set; } = "/storage/emulated/0";
@@ -53,7 +54,7 @@ public class CompanionPeer
 {
     public string DeviceName { get; set; } = "";
     public string Platform { get; set; } = "Windows";
-    public string Version { get; set; } = "0.1.3.0";
+    public string Version { get; set; } = "0.2.0.0";
     public string IpAddress { get; set; } = "";
     public int Port { get; set; } = 45821;
     public PeerProtocolType ProtocolType { get; set; } = PeerProtocolType.SyncDroidCompanion;
@@ -83,4 +84,42 @@ public class TransferQueueItem
         if (bytes < 1024L * 1024 * 1024) return $"{bytes / (1024.0 * 1024.0):F2} MB";
         return $"{bytes / (1024.0 * 1024.0 * 1024.0):F2} GB";
     }
+}
+
+public class TrustedDevice
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string IpAddress { get; set; } = "";
+    public string DeviceType { get; set; } = "";
+    public string Fingerprint { get; set; } = "";
+    public string AuthenticatedAt { get; set; } = "";
+
+    public string DisplayEndpoint => string.IsNullOrWhiteSpace(IpAddress) ? "-" : IpAddress;
+}
+
+public class ReceivedFileItem
+{
+    public string Id { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string SenderName { get; set; } = "";
+    public string Protocol { get; set; } = "";
+    public long Size { get; set; }
+    public string SizeDisplay { get; set; } = "";
+    public string SavedPath { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public double ProgressPercent { get; set; }
+}
+
+public class IncomingTransferSessionEventArgs : EventArgs
+{
+    public string SessionId { get; set; } = "";
+    public string SenderName { get; set; } = "";
+    public string SenderIp { get; set; } = "";
+    public string Protocol { get; set; } = "";
+    public string SaveDirectory { get; set; } = "";
+    public bool RequiresConfirmation { get; set; }
+    public bool AppendToExistingSession { get; set; }
+    public List<ReceivedFileItem> Files { get; set; } = new();
+    public TaskCompletionSource<bool>? ConfirmationTcs { get; set; }
 }

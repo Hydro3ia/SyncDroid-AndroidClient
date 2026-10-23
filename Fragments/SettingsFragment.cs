@@ -33,6 +33,10 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
     private MaterialButton? _btnThemeDark;
     private MaterialSwitch? _switchDynamicColor;
 
+    private TextView? _txtTrustedDevicesTitle;
+    private TextView? _txtTrustedDevicesDesc;
+    private MaterialButton? _btnManageTrustedDevices;
+
     private TextView? _txtPermSectionTitle;
     private TextView? _txtStoragePermStatus;
     private MaterialButton? _btnGrantStoragePerm;
@@ -69,6 +73,10 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
         _btnThemeLight = view.FindViewById<MaterialButton>(Resource.Id.btn_theme_light);
         _btnThemeDark = view.FindViewById<MaterialButton>(Resource.Id.btn_theme_dark);
         _switchDynamicColor = view.FindViewById<MaterialSwitch>(Resource.Id.switch_dynamic_color);
+
+        _txtTrustedDevicesTitle = view.FindViewById<TextView>(Resource.Id.txt_trusted_devices_title);
+        _txtTrustedDevicesDesc = view.FindViewById<TextView>(Resource.Id.txt_trusted_devices_desc);
+        _btnManageTrustedDevices = view.FindViewById<MaterialButton>(Resource.Id.btn_manage_trusted_devices);
 
         _txtPermSectionTitle = view.FindViewById<TextView>(Resource.Id.txt_perm_section_title);
         _txtStoragePermStatus = view.FindViewById<TextView>(Resource.Id.txt_storage_perm_status);
@@ -192,6 +200,11 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
             Activity?.Recreate();
         };
 
+        _btnManageTrustedDevices!.Click += (_, _) =>
+        {
+            (Activity as MainActivity)?.ShowManageDevicesFragment();
+        };
+
         _btnGrantStoragePerm!.Click += (_, _) =>
         {
             (Activity as MainActivity)?.RequestAllFilesAccessPermission();
@@ -227,6 +240,27 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
             if (e.IsChecked && CompanionNetworkService.Instance.IsServerRunning)
             {
                 LocalSendService.Instance.Start(settings.LocalSendPort);
+                if (LocalSendService.Instance.IsAccessForbiddenError)
+                {
+                    Activity?.RunOnUiThread(() =>
+                    {
+                        var loc = LocalizationService.Instance;
+                        string msg = loc.T(
+                            "Access is forbidden (Port 53317 in use): Please close the existing LocalSend software to use this feature",
+                            "端口访问被拒绝 (Access is forbidden)：请关闭已存在的 LocalSend 软件以使用此功能",
+                            "連接埠存取被拒絕 (Access is forbidden)：請關閉已存在的 LocalSend 軟體以使用此功能");
+                        Toast.MakeText(Context, msg, ToastLength.Long)?.Show();
+                        if (_switchLocalSendEnabled != null)
+                        {
+                            _suppressEvents = true;
+                            _switchLocalSendEnabled.Checked = false;
+                            _suppressEvents = false;
+
+                            settings.LocalSendEnabled = false;
+                            SettingsService.Save(settings);
+                        }
+                    });
+                }
             }
             else if (!e.IsChecked)
             {
@@ -287,6 +321,10 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
         if (_btnThemeLight != null) _btnThemeLight.Text = loc.ThemeLight;
         if (_btnThemeDark != null) _btnThemeDark.Text = loc.ThemeDark;
         if (_switchDynamicColor != null) _switchDynamicColor.Text = loc.DynamicColorSwitch;
+
+        if (_txtTrustedDevicesTitle != null) _txtTrustedDevicesTitle.Text = loc.TrustedDevicesSectionTitle;
+        if (_txtTrustedDevicesDesc != null) _txtTrustedDevicesDesc.Text = loc.TrustedDevicesSectionDesc;
+        if (_btnManageTrustedDevices != null) _btnManageTrustedDevices.Text = loc.ManageTrustedDevicesButton;
 
         if (_txtPermSectionTitle != null) _txtPermSectionTitle.Text = loc.PermSectionTitle;
         if (_btnGrantStoragePerm != null) _btnGrantStoragePerm.Text = loc.ManagePermButton;
