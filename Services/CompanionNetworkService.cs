@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -25,7 +26,9 @@ public class CompanionNetworkService
     public static CompanionNetworkService Instance { get; } = new();
 
     private readonly HttpClient _httpClient;
+    private readonly HttpClient _probeHttpClient;
     private readonly Handler _mainHandler = new(Looper.MainLooper!);
+    private readonly ConcurrentDictionary<string, Task<bool>> _pendingAuthByIp = new(StringComparer.OrdinalIgnoreCase);
     private HttpListener? _httpListener;
     private UdpClient? _udpResponder;
     private CancellationTokenSource? _serverCts;
@@ -37,15 +40,38 @@ public class CompanionNetworkService
 
     public event Action? ConnectionStateChanged;
     public event Action? DiscoveredPeersChanged;
+    public Func<string, string, Task<bool>>? ConfirmFirstTimeDeviceAsync { get; set; }
 
     private CompanionNetworkService()
     {
+        string friendlyName = GetDeviceFriendlyName();
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromMinutes(30)
         };
+        _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-SyncDroid-DeviceName", friendlyName);
+
+        _probeHttpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(4)
+        };
+        _probeHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-SyncDroid-DeviceName", friendlyName);
+
         var settings = SettingsService.Load();
         ListeningPort = settings.CompanionPort;
+
+        SettingsService.TrustedDevicesChanged += (_, _) =>
+        {
+            _mainHandler.Post(() =>
+            {
+                if (ConnectedPeer != null &&
+                    ConnectedPeer.ProtocolType == PeerProtocolType.SyncDroidCompanion &&
+                    !SettingsService.IsDeviceTrusted("SyncDroid", null, ConnectedPeer.Endpoint, ConnectedPeer.DeviceName))
+                {
+                    DisconnectFromPc();
+                }
+            });
+        };
     }
 
     public static string GetDeviceFriendlyName()
@@ -87,6 +113,102 @@ public class CompanionNetworkService
             result.Add("127.0.0.1");
         }
         return result;
+    }
+
+    private string ResolvePeerName(string hostIp, string? providedName)
+    {
+        if (!string.IsNullOrWhiteSpace(providedName))
+        {
+            return providedName.Trim();
+        }
+
+        var discovered = DiscoveredPeers.FirstOrDefault(p =>
+            string.Equals(p.IpAddress, hostIp, StringComparison.OrdinalIgnoreCase));
+        if (discovered != null && !string.IsNullOrWhiteSpace(discovered.DeviceName))
+        {
+            return discovered.DeviceName;
+        }
+
+        if (ConnectedPeer != null &&
+            string.Equals(ConnectedPeer.IpAddress, hostIp, StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(ConnectedPeer.DeviceName))
+        {
+            return ConnectedPeer.DeviceName;
+        }
+
+        return hostIp;
+    }
+
+    public async Task<bool> EnsurePeerAuthenticatedAsync(
+        string deviceName,
+        string ipOrEndpoint,
+        bool notifyRemoteOnSuccess = false,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ipOrEndpoint)) return false;
+        string hostIp = SettingsService.NormalizeHostIp(ipOrEndpoint);
+        if (string.IsNullOrWhiteSpace(hostIp)) return false;
+
+        string resolvedName = ResolvePeerName(hostIp, deviceName);
+        if (SettingsService.IsDeviceTrusted("SyncDroid", null, ipOrEndpoint, resolvedName))
+        {
+            if (notifyRemoteOnSuccess)
+            {
+                bool remoteAccepted = await NotifyRemoteConnectAsync(hostIp, ipOrEndpoint, ct);
+                if (!remoteAccepted) return false;
+            }
+            return true;
+        }
+
+        var confirmFunc = ConfirmFirstTimeDeviceAsync;
+        if (confirmFunc == null)
+        {
+            SettingsService.AddTrustedDevice("SyncDroid", resolvedName, ipOrEndpoint);
+            return true;
+        }
+
+        var pendingTask = _pendingAuthByIp.GetOrAdd(hostIp, key => Task.Run(async () =>
+        {
+            try
+            {
+                bool confirmed = await confirmFunc(resolvedName, ipOrEndpoint);
+                if (confirmed)
+                {
+                    SettingsService.AddTrustedDevice("SyncDroid", resolvedName, ipOrEndpoint);
+                    if (notifyRemoteOnSuccess)
+                    {
+                        bool remoteAccepted = await NotifyRemoteConnectAsync(hostIp, ipOrEndpoint, ct);
+                        if (!remoteAccepted) return false;
+                    }
+                }
+                return confirmed;
+            }
+            finally
+            {
+                _pendingAuthByIp.TryRemove(key, out _);
+            }
+        }));
+
+        return await pendingTask;
+    }
+
+    private async Task<bool> NotifyRemoteConnectAsync(string hostIp, string ipOrEndpoint, CancellationToken ct)
+    {
+        try
+        {
+            string targetEp = ipOrEndpoint.Contains(':') ? ipOrEndpoint : $"{hostIp}:45821";
+            string connectUrl = $"http://{targetEp}/api/v1/connect?deviceName={Uri.EscapeDataString(GetDeviceFriendlyName())}&port={ListeningPort}";
+            using var emptyContent = new ByteArrayContent(Array.Empty<byte>());
+            using var resp = await _probeHttpClient.PostAsync(connectUrl, emptyContent, ct);
+            if (resp.StatusCode == HttpStatusCode.Forbidden || resp.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return false;
+            }
+        }
+        catch
+        {
+        }
+        return true;
     }
 
     public void StartServer(int port)
@@ -174,11 +296,10 @@ public class CompanionNetworkService
 
                 if (msg.StartsWith(DiscoveryMagicProbe, StringComparison.Ordinal))
                 {
-                    string reply = $"{DiscoveryMagicReply}|{GetDeviceFriendlyName()}|Android|0.1.2.0|{tcpPort}";
+                    string reply = $"{DiscoveryMagicReply}|{GetDeviceFriendlyName()}|Android|0.2.0.0|{tcpPort}";
                     byte[] replyBytes = Encoding.UTF8.GetBytes(reply);
                     await _udpResponder.SendAsync(replyBytes, replyBytes.Length, received.RemoteEndPoint);
 
-                    // Also parse if sender included its own peer info
                     ParseAndRegisterPeer(msg, received.RemoteEndPoint.Address.ToString());
                 }
                 else if (msg.StartsWith(DiscoveryMagicReply, StringComparison.Ordinal))
@@ -234,12 +355,11 @@ public class CompanionNetworkService
         {
             using var udp = new UdpClient();
             udp.EnableBroadcast = true;
-            string probe = $"{DiscoveryMagicProbe}|{GetDeviceFriendlyName()}|Android|0.1.2.0|{ListeningPort}";
+            string probe = $"{DiscoveryMagicProbe}|{GetDeviceFriendlyName()}|Android|0.2.0.0|{ListeningPort}";
             byte[] data = Encoding.UTF8.GetBytes(probe);
 
             await udp.SendAsync(data, data.Length, new IPEndPoint(IPAddress.Broadcast, DiscoveryUdpPort));
 
-            // Also send to subnet broadcast addresses
             foreach (var ip in GetLocalIpv4Addresses())
             {
                 var segments = ip.Split('.');
@@ -317,13 +437,28 @@ public class CompanionNetworkService
             {
                 DeviceName = string.IsNullOrWhiteSpace(info?.DeviceName) ? host : info.DeviceName,
                 Platform = info?.Platform ?? "Windows",
-                Version = info?.Version ?? "0.1.3.0",
+                Version = info?.Version ?? "0.2.0.0",
                 IpAddress = host,
                 Port = port,
                 ProtocolType = PeerProtocolType.SyncDroidCompanion,
                 Scheme = "http",
                 LastSeenUtc = DateTime.UtcNow
             };
+
+            RegisterDiscoveredPeer(peer);
+
+            bool confirmed = await EnsurePeerAuthenticatedAsync(
+                peer.DeviceName,
+                peer.Endpoint,
+                notifyRemoteOnSuccess: true);
+            if (!confirmed)
+            {
+                var loc = LocalizationService.Instance;
+                return (false, loc.T(
+                    $"Connection to {peer.DeviceName} ({peer.Endpoint}) was declined.",
+                    $"已取消或被拒绝连接至 {peer.DeviceName} ({peer.Endpoint})。",
+                    $"已取消或被拒絕連接至 {peer.DeviceName} ({peer.Endpoint})。"));
+            }
 
             SetConnectedPeer(peer);
             return (true, $"Connected to {peer.DeviceName} ({peer.Endpoint})");
@@ -397,6 +532,9 @@ public class CompanionNetworkService
         var req = ctx.Request;
         var res = ctx.Response;
         string path = req.Url?.AbsolutePath ?? "/";
+        string remoteIp = req.RemoteEndPoint?.Address?.ToString() ?? "";
+        string? headerDevName = req.Headers["X-SyncDroid-DeviceName"];
+        string peerName = ResolvePeerName(remoteIp, req.QueryString["deviceName"] ?? headerDevName);
 
         try
         {
@@ -414,14 +552,51 @@ public class CompanionNetworkService
                 {
                     DeviceName = GetDeviceFriendlyName(),
                     Platform = "Android",
-                    Version = "0.1.2.0",
+                    Version = "0.2.0.0",
                     ListeningPort = ListeningPort,
                     FreeSpaceBytes = freeBytes,
                     DefaultStorageRoot = "/storage/emulated/0"
                 };
                 await WriteJsonResponseAsync(res, info);
+                return;
             }
-            else if (path.Equals("/api/v1/storage/list", StringComparison.OrdinalIgnoreCase))
+
+            if (path.Equals("/api/v1/connect", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "POST")
+            {
+                int peerPort = int.TryParse(req.QueryString["port"], out int parsedPort) && parsedPort > 0
+                    ? parsedPort
+                    : 45821;
+                string ep = !string.IsNullOrWhiteSpace(remoteIp) ? $"{remoteIp}:{peerPort}" : remoteIp;
+                bool allowed = await EnsurePeerAuthenticatedAsync(peerName, ep, notifyRemoteOnSuccess: false);
+                if (!allowed)
+                {
+                    res.StatusCode = 403;
+                    await WriteJsonResponseAsync(res, new { ok = false, error = "Connection declined by user" });
+                    return;
+                }
+                await WriteJsonResponseAsync(res, new { ok = true });
+                return;
+            }
+
+            if (path.Equals("/api/v1/file/push", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "POST")
+            {
+                await HandleServerFilePushAsync(req, res, remoteIp, peerName);
+                return;
+            }
+
+            // Authenticate all other /api/v1/... endpoints on first connection
+            if (!string.IsNullOrWhiteSpace(remoteIp) && !FileHashHelper.IsLoopbackOrDisallowedEndpoint(remoteIp))
+            {
+                bool allowed = await EnsurePeerAuthenticatedAsync(peerName, remoteIp, notifyRemoteOnSuccess: false);
+                if (!allowed)
+                {
+                    res.StatusCode = 403;
+                    await WriteJsonResponseAsync(res, new { ok = false, error = "Device authentication declined by user" });
+                    return;
+                }
+            }
+
+            if (path.Equals("/api/v1/storage/list", StringComparison.OrdinalIgnoreCase))
             {
                 string dirPath = req.QueryString["path"] ?? "/storage/emulated/0";
                 bool includeFiles = string.Equals(req.QueryString["includeFiles"], "true", StringComparison.OrdinalIgnoreCase);
@@ -446,6 +621,20 @@ public class CompanionNetworkService
                 Directory.CreateDirectory(targetDir);
                 await WriteJsonResponseAsync(res, new { ok = true, path = targetDir });
             }
+            else if (path.Equals("/api/v1/file/hash", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "GET")
+            {
+                string filePath = req.QueryString["path"] ?? "";
+                if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                {
+                    res.StatusCode = 404;
+                    res.Close();
+                    return;
+                }
+
+                var fi = new FileInfo(filePath);
+                string sha256 = await FileHashHelper.ComputeSha256Async(filePath);
+                await WriteJsonResponseAsync(res, new { ok = true, sha256, size = fi.Length });
+            }
             else if (path.Equals("/api/v1/file/pull", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "GET")
             {
                 string filePath = req.QueryString["path"] ?? "";
@@ -461,74 +650,16 @@ public class CompanionNetworkService
                 res.ContentLength64 = fi.Length;
                 res.AddHeader("X-LastWriteTimeUtcTicks", fi.LastWriteTimeUtc.Ticks.ToString());
 
+                if (SettingsService.Load().VerifyHashAfterTransfer)
+                {
+                    string sha256 = await FileHashHelper.ComputeSha256Async(filePath);
+                    res.AddHeader("X-File-Sha256", sha256);
+                }
+
                 await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
                 await fs.CopyToAsync(res.OutputStream);
                 res.Close();
                 SyncStateService.Instance.AddLog($"[PC Pull] Sent file: {filePath}");
-            }
-            else if (path.Equals("/api/v1/file/push", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "POST")
-            {
-                string targetPath = req.QueryString["path"] ?? "";
-                long.TryParse(req.QueryString["mtimeTicks"], out long mtimeTicks);
-                int.TryParse(req.QueryString["conflict"], out int conflictInt);
-                var conflict = (ConflictPolicy)conflictInt;
-
-                if (string.IsNullOrWhiteSpace(targetPath))
-                {
-                    res.StatusCode = 400;
-                    res.Close();
-                    return;
-                }
-
-                string finalPath = ResolveConflictTargetFilePath(targetPath, req.ContentLength64, conflict, out bool skipFile);
-                if (skipFile)
-                {
-                    await WriteJsonResponseAsync(res, new { ok = true, skipped = true, path = finalPath });
-                    return;
-                }
-
-                string parentDir = Path.GetDirectoryName(finalPath) ?? "/storage/emulated/0/Download";
-                Directory.CreateDirectory(parentDir);
-
-                string tempPartPath = Path.Combine(parentDir, $".syncdroid_{Guid.NewGuid():N}.part");
-                try
-                {
-                    await using (var fs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
-                    {
-                        await req.InputStream.CopyToAsync(fs);
-                    }
-
-                    if (req.ContentLength64 >= 0)
-                    {
-                        var partInfo = new FileInfo(tempPartPath);
-                        if (partInfo.Length != req.ContentLength64)
-                        {
-                            throw new IOException($"Incomplete transfer: expected {req.ContentLength64} bytes, got {partInfo.Length}.");
-                        }
-                    }
-
-                    File.Move(tempPartPath, finalPath, overwrite: true);
-
-                    if (mtimeTicks > 0)
-                    {
-                        try
-                        {
-                            File.SetLastWriteTimeUtc(finalPath, new DateTime(mtimeTicks, DateTimeKind.Utc));
-                        }
-                        catch { }
-                    }
-
-                    MediaScannerHelper.NotifyFilesChanged(Android.App.Application.Context, new[] { finalPath });
-                    SyncStateService.Instance.AddLog($"[PC Push] Received: {finalPath}");
-                    await WriteJsonResponseAsync(res, new { ok = true, skipped = false, path = finalPath });
-                }
-                finally
-                {
-                    if (File.Exists(tempPartPath))
-                    {
-                        try { File.Delete(tempPartPath); } catch { }
-                    }
-                }
             }
             else if (path.Equals("/api/v1/file/delete", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "POST")
             {
@@ -562,6 +693,163 @@ public class CompanionNetworkService
                 await WriteJsonResponseAsync(res, new { ok = false, error = ex.Message });
             }
             catch { }
+        }
+    }
+
+    private async Task HandleServerFilePushAsync(
+        HttpListenerRequest req,
+        HttpListenerResponse res,
+        string remoteIp,
+        string peerName)
+    {
+        string targetPath = req.QueryString["path"] ?? "";
+        long.TryParse(req.QueryString["mtimeTicks"], out long mtimeTicks);
+        int.TryParse(req.QueryString["conflict"], out int conflictInt);
+        var conflict = Enum.IsDefined(typeof(ConflictPolicy), conflictInt)
+            ? (ConflictPolicy)conflictInt
+            : ConflictPolicy.Overwrite;
+        string? expectedSha256 = !string.IsNullOrWhiteSpace(req.QueryString["sha256"])
+            ? req.QueryString["sha256"]!.Trim()
+            : req.Headers["X-File-Sha256"]?.Trim();
+
+        if (string.IsNullOrWhiteSpace(targetPath))
+        {
+            res.StatusCode = 400;
+            res.Close();
+            return;
+        }
+
+        string finalPath = ResolveConflictTargetFilePath(targetPath, req.ContentLength64, conflict, out bool skipFile);
+        string parentDir = Path.GetDirectoryName(finalPath) ?? "/storage/emulated/0/Download";
+        Directory.CreateDirectory(parentDir);
+
+        string fileId = Guid.NewGuid().ToString("N");
+        string sessionId = $"syncdroid_{remoteIp}";
+        string displayFileName = Path.GetFileName(finalPath);
+        if (string.IsNullOrWhiteSpace(displayFileName)) displayFileName = targetPath;
+
+        var loc = LocalizationService.Instance;
+        var state = SyncStateService.Instance;
+
+        bool isTrusted = string.IsNullOrWhiteSpace(remoteIp) ||
+                         FileHashHelper.IsLoopbackOrDisallowedEndpoint(remoteIp) ||
+                         SettingsService.IsDeviceTrusted("SyncDroid", null, remoteIp, peerName);
+
+        var confirmTcs = !isTrusted
+            ? new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
+            : null;
+
+        var fileItem = new ReceivedFileItem
+        {
+            Id = fileId,
+            FileName = displayFileName,
+            SenderName = peerName,
+            Protocol = "SyncDroid",
+            Size = req.ContentLength64 > 0 ? req.ContentLength64 : 0,
+            SizeDisplay = req.ContentLength64 >= 0 ? FileHashHelper.FormatByteSize(req.ContentLength64) : "",
+            SavedPath = finalPath,
+            StatusText = isTrusted ? loc.ReceiveStatusReceiving : loc.ReceiveStatusPending,
+            ProgressPercent = 0
+        };
+
+        state.HandleIncomingSession(new IncomingTransferSessionEventArgs
+        {
+            SessionId = sessionId,
+            SenderName = peerName,
+            SenderIp = remoteIp,
+            Protocol = "SyncDroid",
+            SaveDirectory = parentDir,
+            RequiresConfirmation = !isTrusted,
+            AppendToExistingSession = true,
+            Files = new List<ReceivedFileItem> { fileItem },
+            ConfirmationTcs = confirmTcs
+        });
+
+        if (!isTrusted)
+        {
+            bool allowed = await EnsurePeerAuthenticatedAsync(peerName, remoteIp, notifyRemoteOnSuccess: false);
+            state.SyncConfirmationDecision(allowed);
+            if (!allowed)
+            {
+                res.StatusCode = 403;
+                await WriteJsonResponseAsync(res, new { ok = false, error = "Device authentication declined by user" });
+                return;
+            }
+        }
+
+        if (skipFile)
+        {
+            state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: true, failed: false);
+            state.AddLog($"Skipped (Identical): {displayFileName} | Overall: 100.0% (1/1)");
+            await WriteJsonResponseAsync(res, new { ok = true, skipped = true, path = finalPath });
+            return;
+        }
+
+        string tempPartPath = Path.Combine(parentDir, $".syncdroid_{Guid.NewGuid():N}.part");
+        long bytesWritten = 0;
+        double elapsedSec = 0;
+
+        try
+        {
+            await using (var rawFs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            await using (var trackedFs = new ProgressTrackingStream(rawFs, (inFlightBytes, liveSpeed) =>
+            {
+                double livePct = req.ContentLength64 > 0
+                    ? FileHashHelper.CalculateOverallPercent(inFlightBytes, req.ContentLength64, 0, 1)
+                    : 50.0;
+                state.UpdateIncomingFileProgress(sessionId, fileId, livePct, liveSpeed);
+                state.AddLog($"Transferring: {displayFileName} | Speed: {liveSpeed} | Overall: {livePct:F1}% (1/1)");
+            }))
+            {
+                await req.InputStream.CopyToAsync(trackedFs, 65536);
+                await trackedFs.FlushAsync();
+                bytesWritten = trackedFs.TotalBytesTransferred;
+                elapsedSec = trackedFs.ElapsedSeconds;
+            }
+
+            if (req.ContentLength64 >= 0 && bytesWritten != req.ContentLength64)
+            {
+                throw new IOException($"Incomplete transfer: expected {req.ContentLength64} bytes, got {bytesWritten}.");
+            }
+
+            if (SettingsService.Load().VerifyHashAfterTransfer && !string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                string actualSha256 = await FileHashHelper.ComputeSha256Async(tempPartPath);
+                if (!string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Delete(tempPartPath); } catch { }
+                    throw new IOException($"Hash verification failed (SHA-256) for '{finalPath}'.");
+                }
+            }
+
+            File.Move(tempPartPath, finalPath, overwrite: true);
+
+            if (mtimeTicks > 0)
+            {
+                try
+                {
+                    File.SetLastWriteTimeUtc(finalPath, new DateTime(mtimeTicks, DateTimeKind.Utc));
+                }
+                catch { }
+            }
+
+            MediaScannerHelper.NotifyFilesChanged(Android.App.Application.Context, new[] { finalPath });
+            string avgSpeed = FileHashHelper.FormatTransferSpeed(bytesWritten, elapsedSec);
+            state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: false, failed: false);
+            state.AddLog($"Transferred: {displayFileName} ({FileHashHelper.FormatByteSize(bytesWritten)}) | Speed: {avgSpeed} | Overall: 100.0% (1/1)");
+            await WriteJsonResponseAsync(res, new { ok = true, skipped = false, path = finalPath, size = bytesWritten });
+        }
+        catch
+        {
+            state.CompleteIncomingFile(sessionId, fileId, finalPath, skipped: false, failed: true);
+            throw;
+        }
+        finally
+        {
+            if (File.Exists(tempPartPath))
+            {
+                try { File.Delete(tempPartPath); } catch { }
+            }
         }
     }
 
@@ -659,24 +947,70 @@ public class CompanionNetworkService
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task PushFileToPcAsync(FileInfo localFile, string remoteTargetPath, ConflictPolicy conflictPolicy, CancellationToken token)
+    public async Task<(long BytesTransferred, double ElapsedSeconds, bool Skipped)> PushFileToPcAsync(
+        FileInfo localFile,
+        string remoteTargetPath,
+        ConflictPolicy conflictPolicy,
+        CancellationToken token,
+        Action<long, string>? onProgressCallback = null)
     {
         string baseUrl = EnsureConnectedPcBaseUrl();
-        string url = $"{baseUrl}/api/v1/file/push?path={Uri.EscapeDataString(remoteTargetPath)}&mtimeTicks={localFile.LastWriteTimeUtc.Ticks}&conflict={(int)conflictPolicy}";
+        var settings = SettingsService.Load();
+        string? sha256 = settings.VerifyHashAfterTransfer
+            ? await FileHashHelper.ComputeSha256Async(localFile.FullName, token)
+            : null;
 
-        await using var fs = new FileStream(localFile.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
-        using var content = new StreamContent(fs, 65536);
+        string url = $"{baseUrl}/api/v1/file/push?path={Uri.EscapeDataString(remoteTargetPath)}&mtimeTicks={localFile.LastWriteTimeUtc.Ticks}&conflict={(int)conflictPolicy}" +
+                     (!string.IsNullOrEmpty(sha256) ? $"&sha256={sha256}" : "");
+
+        long bytesSent = 0;
+        double elapsedSec = 0;
+        bool skippedByRemote = false;
+
+        await using var rawFs = new FileStream(localFile.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 65536, useAsync: true);
+        await using var trackedStream = new ProgressTrackingStream(rawFs, onProgressCallback);
+        using var content = new StreamContent(trackedStream, 65536);
         content.Headers.ContentLength = localFile.Length;
 
-        var resp = await _httpClient.PostAsync(url, content, token);
+        if (!string.IsNullOrEmpty(sha256))
+        {
+            content.Headers.TryAddWithoutValidation("X-File-Sha256", sha256);
+        }
+
+        using var resp = await _httpClient.PostAsync(url, content, token);
         resp.EnsureSuccessStatusCode();
+        bytesSent = trackedStream.TotalBytesTransferred;
+        elapsedSec = trackedStream.ElapsedSeconds;
+
+        try
+        {
+            string respJson = await resp.Content.ReadAsStringAsync(token);
+            if (!string.IsNullOrWhiteSpace(respJson))
+            {
+                using var doc = JsonDocument.Parse(respJson);
+                if (doc.RootElement.TryGetProperty("skipped", out var skipProp) && skipProp.ValueKind == JsonValueKind.True)
+                {
+                    skippedByRemote = true;
+                }
+            }
+        }
+        catch { }
+
+        return (bytesSent, elapsedSec, skippedByRemote);
     }
 
-    public async Task PullFileFromPcAsync(string remoteFilePath, string localTargetPath, long expectedSize, long mtimeTicks, ConflictPolicy conflictPolicy, CancellationToken token)
+    public async Task<(long BytesTransferred, double ElapsedSeconds, bool Skipped)> PullFileFromPcAsync(
+        string remoteFilePath,
+        string localTargetPath,
+        long expectedSize,
+        long mtimeTicks,
+        ConflictPolicy conflictPolicy,
+        CancellationToken token,
+        Action<long, string>? onProgressCallback = null)
     {
         string baseUrl = EnsureConnectedPcBaseUrl();
         string finalLocalPath = ResolveConflictTargetFilePath(localTargetPath, expectedSize, conflictPolicy, out bool shouldSkip);
-        if (shouldSkip) return;
+        if (shouldSkip) return (0, 0, true);
 
         string parentDir = Path.GetDirectoryName(finalLocalPath) ?? "/storage/emulated/0/Download";
         Directory.CreateDirectory(parentDir);
@@ -684,15 +1018,22 @@ public class CompanionNetworkService
         string tempPartPath = Path.Combine(parentDir, $".syncdroid_{Guid.NewGuid():N}.part");
         string url = $"{baseUrl}/api/v1/file/pull?path={Uri.EscapeDataString(remoteFilePath)}";
 
+        long bytesPulled = 0;
+        double elapsedSec = 0;
+
         try
         {
             using var resp = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
             resp.EnsureSuccessStatusCode();
 
             await using (var netStream = await resp.Content.ReadAsStreamAsync(token))
-            await using (var fs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            await using (var rawFs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            await using (var trackedFs = new ProgressTrackingStream(rawFs, onProgressCallback))
             {
-                await netStream.CopyToAsync(fs, 65536, token);
+                await netStream.CopyToAsync(trackedFs, 65536, token);
+                await trackedFs.FlushAsync(token);
+                bytesPulled = trackedFs.TotalBytesTransferred;
+                elapsedSec = trackedFs.ElapsedSeconds;
             }
 
             if (expectedSize >= 0)
@@ -706,6 +1047,21 @@ public class CompanionNetworkService
 
             File.Move(tempPartPath, finalLocalPath, overwrite: true);
 
+            var settings = SettingsService.Load();
+            if (settings.VerifyHashAfterTransfer && resp.Headers.TryGetValues("X-File-Sha256", out var shaValues))
+            {
+                string expectedSha256 = shaValues.FirstOrDefault() ?? "";
+                if (!string.IsNullOrWhiteSpace(expectedSha256))
+                {
+                    string localSha256 = await FileHashHelper.ComputeSha256Async(finalLocalPath, token);
+                    if (!string.Equals(expectedSha256, localSha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { File.Delete(finalLocalPath); } catch { }
+                        throw new IOException($"SHA-256 hash mismatch for '{remoteFilePath}'. File discarded.");
+                    }
+                }
+            }
+
             if (mtimeTicks > 0)
             {
                 try
@@ -714,6 +1070,8 @@ public class CompanionNetworkService
                 }
                 catch { }
             }
+
+            return (bytesPulled, elapsedSec, false);
         }
         finally
         {

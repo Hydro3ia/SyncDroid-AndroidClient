@@ -52,4 +52,8 @@ public class LocalSendUploadSession
     public Dictionary<string, string> Tokens { get; set; } = new();
     public string ReceiveDirectory { get; set; } = "/storage/emulated/0/Download/SyncDroid";
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public int TotalFiles { get; set; }
+    public long TotalBytes { get; set; }
+    public int ProcessedFiles;
+    public long CompletedBytes;
 }

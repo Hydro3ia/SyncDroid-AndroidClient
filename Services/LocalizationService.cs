@@ -52,6 +52,7 @@ public class LocalizationService : ObservableObject
 
     public string NavMirrorSync => T("Mirror Sync", "镜像同步", "鏡像同步");
     public string NavFileTransfer => T("File Transfer", "文件直传", "檔案直傳");
+    public string NavReceive => T("Receive Files", "接收文件", "接收檔案");
     public string NavCompanion => T("Companion", "无线伴侣", "無線伴侶");
     public string NavSettings => T("Settings", "设置", "設定");
 
@@ -64,13 +65,13 @@ public class LocalizationService : ObservableObject
     public string GrantButton => T("Grant", "去授权", "去授權");
 
     // Mirror Sync Tab
-    public string DirPcToAndroid => T("PC  ➔  Android", "电脑  ➔  手机", "電腦  ➔  手機");
-    public string DirAndroidToPc => T("Android  ➔  PC", "手机  ➔  电脑", "手機  ➔  電腦");
+    public string DirPcToAndroid => T("Pull (/MIR mode)", "拉取同步 (/MIR mode)", "拉取同步 (/MIR mode)");
+    public string DirAndroidToPc => T("Push (/MIR mode)", "推送同步 (/MIR mode)", "推送同步 (/MIR mode)");
     public string MirModeSwitchLabel => T(
         "Mirror Mode — Delete extra files in target",
         "镜像同步模式 — 自动清理目标端多余文件",
         "鏡像同步模式 — 自動清理目標端多餘檔案");
-    public string PcDirectoryLabel => T("Windows PC Directory", "Windows 电脑文件夹路径", "Windows 電腦資料夾路徑");
+    public string PcDirectoryLabel => T("Target Device Directory", "目标设备文件夹路径", "目標裝置資料夾路徑");
     public string AndroidDirectoryLabel => T("Android Device Directory", "Android 手机文件夹路径", "Android 手機資料夾路徑");
     public string SourceBadge => T("SOURCE", "源目录 (SOURCE)", "來源目錄 (SOURCE)");
     public string TargetBadge => T("TARGET", "目标目录 (TARGET)", "目標目錄 (TARGET)");
@@ -88,6 +89,7 @@ public class LocalizationService : ObservableObject
     public string StatusSyncing => T("Syncing...", "正在同步...", "正在同步...");
     public string StatusTransferring => T("Transferring...", "正在传输...", "正在傳輸...");
     public string StatusCompleted => T("Completed", "已完成", "已完成");
+    public string StatusTransferCompleted => T("Transfer Completed", "传输完成", "傳輸完成");
     public string StatusCancelled => T("Cancelled", "已取消", "已取消");
     public string StatusFailed => T("Failed", "失败", "失敗");
 
@@ -123,6 +125,46 @@ public class LocalizationService : ObservableObject
         "目前已連接 [LocalSend] 裝置。資料夾鏡像同步 (/MIR) 需要連接電腦端 SyncDroid 伴侶服務；若要透過 LocalSend 傳輸檔案，請切換至「檔案直傳」頁面。");
     public string StartTransferButton => T("Start Transfer", "开始传输", "開始傳輸");
 
+    // Receive Files Tab
+    public string ReceivePageTitle => T("Incoming File Receiver", "文件接收中心", "檔案接收中心");
+    public string ReceiveSenderLabel => T("Sender Device:", "发送方设备：", "傳送方裝置：");
+    public string ReceiveNoActiveSender => T("Waiting for incoming transfers...", "等待其他设备发送文件...", "等待其他裝置傳送檔案...");
+    public string ReceiveSaveDirLabel => T("Save Directory:", "保存目录：", "儲存目錄：");
+    public string OpenReceiveFolderButton => T("Open Folder", "打开目录", "打開目錄");
+    public string ReceiveFilesHeader => T("Incoming Files (File Names)", "接收文件列表（文件档名）", "接收檔案清單（檔案檔名）");
+    public string ReceiveEmptyFilesHint => T(
+        "No incoming files yet. When another LocalSend or SyncDroid device sends files to this phone, it will automatically switch to this page and display the file names here.",
+        "暂无接收文件。当其他 LocalSend 或 SyncDroid 设备向本机发送数据时，将自动切换至此页面并显示文件档名与接收进度。",
+        "暫無接收檔案。當其他 LocalSend 或 SyncDroid 裝置向本機傳送資料時，將自動切換至此頁面並顯示檔案檔名與接收進度。");
+    public string ClearReceiveListButton => T("Clear List", "清空列表", "清空清單");
+    public string ReceivePendingConfirmBannerFormat => T(
+        "Incoming transfer request from \"{0}\" ({1} file(s)). Confirm to accept and authenticate this device:",
+        "收到来自「{0}」的文件传输请求（共 {1} 个文件），请确认是否接受并认证该设备：",
+        "收到來自「{0}」的檔案傳輸請求（共 {1} 個檔案），請確認是否接受並認證該裝置：");
+    public string AcceptTransferButton => T("Accept & Authenticate", "接受并认证", "接受並認證");
+    public string DeclineTransferButton => T("Decline", "拒绝", "拒絕");
+    public string ReceiveStatusPending => T("Pending Confirmation", "等待确认", "等待確認");
+    public string ReceiveStatusWaitingUpload => T("Accepted, waiting...", "已接受，等待传输...", "已接受，等待傳輸...");
+    public string ReceiveStatusReceiving => T("Receiving...", "正在接收...", "正在接收...");
+    public string ReceiveStatusCompleted => T("Completed", "接收完成", "接收完成");
+    public string ReceiveStatusSkipped => T("Skipped (Identical)", "已跳过 (相同文件)", "已略過 (相同檔案)");
+    public string ReceiveStatusDeclined => T("Declined", "已拒绝", "已拒絕");
+    public string ReceiveStatusFailed => T("Failed", "接收失败", "接收失敗");
+
+    // First-Time Connection & LocalSend Receive Confirmation Dialogs
+    public string FirstTimeConnectDialogTitle => T("First-Time Device Connection Confirmation", "设备初次连接确认", "裝置初次連接確認");
+    public string FirstTimeSyncDroidConnectMessage => T(
+        "Connecting with SyncDroid device \"{0}\" ({1}) for the first time.\n\nDo you want to confirm this connection and add it to your authenticated devices?",
+        "检测到与 SyncDroid 设备「{0} ({1})」初次连接。\n\n是否确认连接并将该设备加入已认证设备列表？",
+        "偵測到與 SyncDroid 裝置「{0} ({1})」初次連接。\n\n是否確認連接並將該裝置加入已認證裝置清單？");
+    public string FirstTimeLocalSendReceiveTitle => T("LocalSend Transfer Request Confirmation", "LocalSend 接收请求确认", "LocalSend 接收請求確認");
+    public string FirstTimeLocalSendReceiveMessage => T(
+        "LocalSend device \"{0}\" ({1}) is requesting to send {2} file(s) to this phone:\n\n{3}\n\nDo you want to accept this transfer request and authenticate the device?",
+        "LocalSend 设备「{0} ({1})」请求向本机发送 {2} 个文件：\n\n{3}\n\n是否接受此次传输请求并认证该设备？",
+        "LocalSend 裝置「{0} ({1})」請求向本機傳送 {2} 個檔案：\n\n{3}\n\n是否接受此次傳輸請求並認證該裝置？");
+    public string ConfirmAcceptButton => T("Confirm & Accept", "确认接受", "確認接受");
+    public string ConfirmRejectButton => T("Decline", "拒绝", "拒絕");
+
     // Companion Tab
     public string ServerCardTitle => T("Android Wireless Companion & LocalSend Server", "手机无线伴侣与 LocalSend 服务端", "手機無線伴侶與 LocalSend 服務端");
     public string ServerCardDesc => T(
@@ -144,7 +186,7 @@ public class LocalizationService : ObservableObject
         "点击「扫描局域网」搜索同一 Wi-Fi 下的 SyncDroid 或 LocalSend 设备，或在上方直接输入 IP:端口 连接。",
         "點擊「掃描區域網路」搜尋同一 Wi-Fi 下的 SyncDroid 或 LocalSend 裝置，或在上方直接輸入 IP:連接埠 連接。");
 
-    // Settings Tab
+    // Settings Tab & Manage Authenticated Devices Page
     public string LanguageSectionTitle => T("Language / 语言", "界面语言 (Language)", "介面語言 (Language)");
     public string LanguageSectionDesc => T("Select display language for the application interface (instant switch)", "选择应用界面的显示语言（即时生效）", "選擇應用介面的顯示語言（即時生效）");
     public string ThemeSectionTitle => T("Appearance & Material Design 3", "外观与 Material Design 3 主题", "外觀與 Material Design 3 主題");
@@ -153,6 +195,25 @@ public class LocalizationService : ObservableObject
     public string ThemeLight => T("Light", "浅色", "淺色");
     public string ThemeDark => T("Dark", "深色", "深色");
     public string DynamicColorSwitch => T("Material You Dynamic Color (Android 12+)", "启用 Material You 系统壁纸动态取色", "啟用 Material You 系統桌布動態取色");
+    public string TrustedDevicesSectionTitle => T("Authenticated Devices Management", "已认证设备管理", "已認證裝置管理");
+    public string TrustedDevicesSectionDesc => T(
+        "View and manage SyncDroid and LocalSend devices that have been confirmed and authenticated on first connection",
+        "查看并管理在初次连接或接收时已通过确认的 SyncDroid 与 LocalSend 认证设备",
+        "查看並管理在初次連接或接收時已通過確認的 SyncDroid 與 LocalSend 認證裝置");
+    public string ManageTrustedDevicesButton => T("Manage Authenticated Devices", "管理认证设备", "管理認證裝置");
+    public string ManageDevicesPageTitle => T("Manage Authenticated Devices", "管理认证设备", "管理認證裝置");
+    public string ManageDevicesPageDesc => T(
+        "Devices listed below have been confirmed by you. Deleting a device will require user confirmation again the next time it connects or sends files.",
+        "以下设备已通过您的初次连接或接收确认。删除已认证设备后，下次与该设备连接或接收其发送的数据时将重新需要您进行确认。",
+        "以下裝置已通過您的初次連接或接收確認。刪除已認證裝置後，下次與該裝置連接或接收其傳送的資料時將重新需要您進行確認。");
+    public string BackToSettingsButton => T("Back to Settings", "返回设置", "返回設定");
+    public string RemoveAllDevicesButton => T("Remove All", "全部删除", "全部刪除");
+    public string DeleteDeviceButton => T("Delete", "删除", "刪除");
+    public string NoTrustedDevicesHint => T(
+        "No authenticated devices yet. Devices confirmed during first-time connection or file reception will appear here.",
+        "暂无已认证的设备。在两台设备初次连接或接收文件时确认通过的设备将显示在此处。",
+        "暫無已認證的裝置。在兩台裝置初次連接或接收檔案時確認通過的裝置將顯示在此處。");
+    public string TrustedDeviceTimePrefix => T("Authenticated: ", "认证时间：", "認證時間：");
     public string PermSectionTitle => T("Storage Access, Port & Safety", "存储权限、通信端口与安全防护", "儲存權限、通訊埠與安全防護");
     public string ManagePermButton => T("Manage Permission", "管理权限", "管理權限");
     public string PortLabel => T("Companion Listening TCP Port (Default: 45821):", "伴侣服务监听 TCP 端口 (默认 45821)：", "伴侶服務監聽 TCP 連接埠 (預設 45821)：");

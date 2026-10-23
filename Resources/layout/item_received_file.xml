@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+  <ImageView
+      android:layout_width="20dp"
+      android:layout_height="20dp"
+      android:src="@drawable/ic_file" />
+
+  <TextView
+      android:id="@+id/txt_received_protocol"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="6dp"
+      android:background="?attr/colorSecondaryContainer"
+      android:paddingStart="5dp"
+      android:paddingEnd="5dp"
+      android:paddingTop="1dp"
+      android:paddingBottom="1dp"
+      android:fontFamily="monospace"
+      android:text="LocalSend"
+      android:textSize="10sp"
+      android:textStyle="bold"
+      android:textColor="?attr/colorOnSecondaryContainer" />
+
+  <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:layout_marginStart="8dp"
+      android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/txt_received_filename"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:singleLine="true"
+        android:ellipsize="middle" />
+
+    <TextView
+        android:id="@+id/txt_received_saved_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textSize="10sp"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:singleLine="true"
+        android:ellipsize="start" />
+  </LinearLayout>
+
+  <TextView
+      android:id="@+id/txt_received_size"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="6dp"
+      android:fontFamily="monospace"
+      android:textSize="11sp"
+      android:textColor="?attr/colorOnSurfaceVariant" />
+
+  <TextView
+      android:id="@+id/txt_received_status"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="6dp"
+      android:background="?attr/colorSurfaceVariant"
+      android:paddingStart="6dp"
+      android:paddingEnd="6dp"
+      android:paddingTop="2dp"
+      android:paddingBottom="2dp"
+      android:textSize="10sp"
+      android:textStyle="bold" />
+</LinearLayout>

@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Android;
 using Android.App;
 using Android.Content;
@@ -9,12 +11,14 @@ using Android.OS;
 using Android.Provider;
 using Android.Views;
 using Android.Widget;
+using AndroidX.Activity;
 using AndroidX.AppCompat.App;
 using AndroidX.Core.App;
 using AndroidX.Core.Content;
 using Google.Android.Material.BottomNavigation;
 using Google.Android.Material.Card;
 using Google.Android.Material.Color;
+using Google.Android.Material.Dialog;
 using Google.Android.Material.NavigationRail;
 using SyncDroidAndroid.Fragments;
 using SyncDroidAndroid.Models;
@@ -45,6 +49,10 @@ public class MainActivity : AppCompatActivity
     private FrameLayout? _fragmentContainer;
     private bool _syncingNavSelection;
     private int _currentTabItemId = Resource.Id.nav_mirror_sync;
+    private bool _inManageDevicesSubPage;
+    private ManageDevicesBackCallback? _manageDevicesBackCallback;
+    private AndroidX.AppCompat.App.AlertDialog? _activeIncomingConfirmDialog;
+    private TaskCompletionSource<bool>? _activeSyncDroidConfirmTcs;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -67,6 +75,9 @@ public class MainActivity : AppCompatActivity
         _dividerNavRail = FindViewById<View>(Resource.Id.divider_nav_rail);
         _fragmentContainer = FindViewById<FrameLayout>(Resource.Id.fragment_container);
 
+        _manageDevicesBackCallback = new ManageDevicesBackCallback(this);
+        OnBackPressedDispatcher.AddCallback(this, _manageDevicesBackCallback);
+
         _cardConnectionPill!.Click += (_, _) =>
         {
             SelectNavigationItem(Resource.Id.nav_companion);
@@ -75,14 +86,18 @@ public class MainActivity : AppCompatActivity
         _bottomNav!.ItemSelected += (_, e) =>
         {
             if (_syncingNavSelection) return;
-            SelectNavigationItem(e.Item.ItemId);
+            SelectNavigationItem(e.Item.ItemId, forceSwitch: _inManageDevicesSubPage);
         };
 
         _navRail!.ItemSelected += (_, e) =>
         {
             if (_syncingNavSelection) return;
-            SelectNavigationItem(e.Item.ItemId);
+            SelectNavigationItem(e.Item.ItemId, forceSwitch: _inManageDevicesSubPage);
         };
+
+        CompanionNetworkService.Instance.ConfirmFirstTimeDeviceAsync = ConfirmFirstTimeSyncDroidDeviceOnUiAsync;
+        SyncStateService.Instance.IncomingTransferSessionStarted += OnIncomingTransferSessionStarted;
+        SyncStateService.Instance.ConfirmationResolvedFromBanner += OnConfirmationResolvedFromBanner;
 
         RequestNotificationPermissionIfNeeded();
 
@@ -103,6 +118,17 @@ public class MainActivity : AppCompatActivity
         }
 
         HandleIncomingShareIntent(Intent);
+    }
+
+    protected override void OnDestroy()
+    {
+        SyncStateService.Instance.IncomingTransferSessionStarted -= OnIncomingTransferSessionStarted;
+        SyncStateService.Instance.ConfirmationResolvedFromBanner -= OnConfirmationResolvedFromBanner;
+        if (CompanionNetworkService.Instance.ConfirmFirstTimeDeviceAsync == ConfirmFirstTimeSyncDroidDeviceOnUiAsync)
+        {
+            CompanionNetworkService.Instance.ConfirmFirstTimeDeviceAsync = null;
+        }
+        base.OnDestroy();
     }
 
     protected override void OnStart()
@@ -138,6 +164,7 @@ public class MainActivity : AppCompatActivity
         base.OnResume();
         CompanionNetworkService.Instance.ConnectionStateChanged += UpdateConnectionPillUi;
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+        CompanionNetworkService.Instance.ConfirmFirstTimeDeviceAsync = ConfirmFirstTimeSyncDroidDeviceOnUiAsync;
         UpdateConnectionPillUi();
     }
 
@@ -148,10 +175,155 @@ public class MainActivity : AppCompatActivity
         base.OnPause();
     }
 
-    private void SelectNavigationItem(int itemId, bool forceSwitch = false)
+    private void OnIncomingTransferSessionStarted(IncomingTransferSessionEventArgs args)
     {
-        bool changed = _currentTabItemId != itemId || forceSwitch;
+        RunOnUiThread(() =>
+        {
+            SelectNavigationItem(Resource.Id.nav_receive, forceSwitch: true);
+
+            if (args.RequiresConfirmation &&
+                args.ConfirmationTcs != null &&
+                string.Equals(args.Protocol, "LocalSend", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowLocalSendReceiveConfirmDialog(args);
+            }
+        });
+    }
+
+    private void OnConfirmationResolvedFromBanner()
+    {
+        RunOnUiThread(() =>
+        {
+            try
+            {
+                _activeIncomingConfirmDialog?.Dismiss();
+                _activeIncomingConfirmDialog = null;
+            }
+            catch { }
+
+            if (_activeSyncDroidConfirmTcs != null && !_activeSyncDroidConfirmTcs.Task.IsCompleted)
+            {
+                var status = SyncStateService.Instance.ReceiveStatusText;
+                bool accepted = status != LocalizationService.Instance.ReceiveStatusDeclined;
+                _activeSyncDroidConfirmTcs.TrySetResult(accepted);
+            }
+        });
+    }
+
+    private void ShowLocalSendReceiveConfirmDialog(IncomingTransferSessionEventArgs args)
+    {
+        if (IsFinishing || IsDestroyed || args.ConfirmationTcs == null || args.ConfirmationTcs.Task.IsCompleted)
+            return;
+
+        try
+        {
+            _activeIncomingConfirmDialog?.Dismiss();
+        }
+        catch { }
+
+        var loc = LocalizationService.Instance;
+        var previewLines = args.Files
+            .Take(12)
+            .Select(f => $"• {f.FileName} ({f.SizeDisplay})")
+            .ToList();
+        if (args.Files.Count > 12)
+        {
+            previewLines.Add($"... (+{args.Files.Count - 12} more)");
+        }
+        string filePreviewText = string.Join("\n", previewLines);
+
+        string msg = string.Format(
+            loc.FirstTimeLocalSendReceiveMessage,
+            args.SenderName,
+            args.SenderIp,
+            args.Files.Count,
+            filePreviewText);
+
+        var builder = new MaterialAlertDialogBuilder(this);
+        builder.SetTitle(loc.FirstTimeLocalSendReceiveTitle);
+        builder.SetMessage(msg);
+        builder.SetCancelable(true);
+        builder.SetPositiveButton(loc.ConfirmAcceptButton, (_, _) =>
+        {
+            if (!args.ConfirmationTcs.Task.IsCompleted)
+            {
+                SyncStateService.Instance.SyncConfirmationDecision(accepted: true);
+            }
+        });
+        builder.SetNegativeButton(loc.ConfirmRejectButton, (_, _) =>
+        {
+            if (!args.ConfirmationTcs.Task.IsCompleted)
+            {
+                SyncStateService.Instance.SyncConfirmationDecision(accepted: false);
+            }
+        });
+
+        _activeIncomingConfirmDialog = builder.Show();
+    }
+
+    private Task<bool> ConfirmFirstTimeSyncDroidDeviceOnUiAsync(string deviceName, string ipOrEndpoint)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _activeSyncDroidConfirmTcs = tcs;
+
+        RunOnUiThread(() =>
+        {
+            if (IsFinishing || IsDestroyed)
+            {
+                tcs.TrySetResult(true);
+                return;
+            }
+
+            try
+            {
+                _activeIncomingConfirmDialog?.Dismiss();
+            }
+            catch { }
+
+            var loc = LocalizationService.Instance;
+            var builder = new MaterialAlertDialogBuilder(this);
+            builder.SetTitle(loc.FirstTimeConnectDialogTitle);
+            builder.SetMessage(string.Format(loc.FirstTimeSyncDroidConnectMessage, deviceName, ipOrEndpoint));
+            builder.SetCancelable(false);
+            builder.SetPositiveButton(loc.ConfirmAcceptButton, (_, _) =>
+            {
+                tcs.TrySetResult(true);
+            });
+            builder.SetNegativeButton(loc.ConfirmRejectButton, (_, _) =>
+            {
+                tcs.TrySetResult(false);
+            });
+
+            _activeIncomingConfirmDialog = builder.Show();
+        });
+
+        return tcs.Task;
+    }
+
+    public void ShowManageDevicesFragment()
+    {
+        _inManageDevicesSubPage = true;
+        if (_manageDevicesBackCallback != null) _manageDevicesBackCallback.Enabled = true;
+
+        SupportFragmentManager
+            .BeginTransaction()
+            .Replace(Resource.Id.fragment_container, new ManageDevicesFragment())
+            .CommitAllowingStateLoss();
+    }
+
+    public void ShowSettingsFragment()
+    {
+        _inManageDevicesSubPage = false;
+        if (_manageDevicesBackCallback != null) _manageDevicesBackCallback.Enabled = false;
+        SelectNavigationItem(Resource.Id.nav_settings, forceSwitch: true);
+    }
+
+    public void SelectNavigationItem(int itemId, bool forceSwitch = false)
+    {
+        bool changed = _currentTabItemId != itemId || forceSwitch || _inManageDevicesSubPage;
         _currentTabItemId = itemId;
+        _inManageDevicesSubPage = false;
+        if (_manageDevicesBackCallback != null) _manageDevicesBackCallback.Enabled = false;
 
         _syncingNavSelection = true;
         if (_bottomNav != null && _bottomNav.SelectedItemId != itemId)
@@ -207,6 +379,7 @@ public class MainActivity : AppCompatActivity
         AndroidX.Fragment.App.Fragment fragment = itemId switch
         {
             Resource.Id.nav_file_transfer => new FileTransferFragment(),
+            Resource.Id.nav_receive => new ReceiveFragment(),
             Resource.Id.nav_companion => new CompanionFragment(),
             Resource.Id.nav_settings => new SettingsFragment(),
             _ => new MirrorSyncFragment()
@@ -215,7 +388,7 @@ public class MainActivity : AppCompatActivity
         SupportFragmentManager
             .BeginTransaction()
             .Replace(Resource.Id.fragment_container, fragment)
-            .Commit();
+            .CommitAllowingStateLoss();
     }
 
     public static void ApplyThemeMode(string themeMode)
@@ -311,18 +484,43 @@ public class MainActivity : AppCompatActivity
 
         try
         {
+            var uris = new System.Collections.Generic.List<Android.Net.Uri>();
+
+            if (action == Intent.ActionSend)
+            {
+                var uri = (Android.Net.Uri?)intent.GetParcelableExtra(Intent.ExtraStream);
+                if (uri != null) uris.Add(uri);
+            }
+            else if (action == Intent.ActionSendMultiple)
+            {
+                var uriList = intent.GetParcelableArrayListExtra(Intent.ExtraStream);
+                if (uriList != null)
+                {
+                    foreach (var item in uriList)
+                    {
+                        if (item is Android.Net.Uri uri) uris.Add(uri);
+                    }
+                }
+            }
+
             var clipData = intent.ClipData;
-            if (clipData != null && clipData.ItemCount > 0)
+            if (clipData != null)
             {
                 for (int i = 0; i < clipData.ItemCount; i++)
                 {
                     var uri = clipData.GetItemAt(i)?.Uri;
-                    if (uri != null) ImportSharedUriToQueue(uri);
+                    if (uri != null && !uris.Contains(uri)) uris.Add(uri);
                 }
             }
-            else if (intent.Data != null)
+
+            if (uris.Count == 0 && intent.Data != null)
             {
-                ImportSharedUriToQueue(intent.Data);
+                uris.Add(intent.Data);
+            }
+
+            foreach (var uri in uris)
+            {
+                ImportSharedUriToQueue(uri);
             }
 
             SelectNavigationItem(Resource.Id.nav_file_transfer);
@@ -351,7 +549,6 @@ public class MainActivity : AppCompatActivity
             }
         }
 
-        // Copy content:// stream to temp cache so it can be sent reliably over Companion network
         string fileName = $"shared_{DateTime.Now:yyyyMMdd_HHmmss}";
         var cursor = ContentResolver?.Query(uri, null, null, null, null);
         if (cursor != null)
@@ -393,7 +590,6 @@ public class MainActivity : AppCompatActivity
 
         if (_txtConnectionPill == null || _viewStatusDot == null) return;
 
-        bool isOnline = net.ConnectedPeer != null || net.IsServerRunning;
         if (_viewStatusDot.Background is GradientDrawable gd)
         {
             int colorRes = net.ConnectedPeer != null
@@ -433,6 +629,7 @@ public class MainActivity : AppCompatActivity
             var menu = _bottomNav.Menu;
             menu.FindItem(Resource.Id.nav_mirror_sync)?.SetTitle(loc.NavMirrorSync);
             menu.FindItem(Resource.Id.nav_file_transfer)?.SetTitle(loc.NavFileTransfer);
+            menu.FindItem(Resource.Id.nav_receive)?.SetTitle(loc.NavReceive);
             menu.FindItem(Resource.Id.nav_companion)?.SetTitle(loc.NavCompanion);
             menu.FindItem(Resource.Id.nav_settings)?.SetTitle(loc.NavSettings);
         }
@@ -442,8 +639,24 @@ public class MainActivity : AppCompatActivity
             var railMenu = _navRail.Menu;
             railMenu.FindItem(Resource.Id.nav_mirror_sync)?.SetTitle(loc.NavMirrorSync);
             railMenu.FindItem(Resource.Id.nav_file_transfer)?.SetTitle(loc.NavFileTransfer);
+            railMenu.FindItem(Resource.Id.nav_receive)?.SetTitle(loc.NavReceive);
             railMenu.FindItem(Resource.Id.nav_companion)?.SetTitle(loc.NavCompanion);
             railMenu.FindItem(Resource.Id.nav_settings)?.SetTitle(loc.NavSettings);
+        }
+    }
+
+    private sealed class ManageDevicesBackCallback : OnBackPressedCallback
+    {
+        private readonly MainActivity _activity;
+
+        public ManageDevicesBackCallback(MainActivity activity) : base(false)
+        {
+            _activity = activity;
+        }
+
+        public override void HandleOnBackPressed()
+        {
+            _activity.ShowSettingsFragment();
         }
     }
 }

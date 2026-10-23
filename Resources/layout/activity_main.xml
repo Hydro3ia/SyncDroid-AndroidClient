@@ -27,7 +27,7 @@
         <ImageView
             android:layout_width="28dp"
             android:layout_height="28dp"
-            android:src="@drawable/ic_app_logo"
+            android:src="@mipmap/ic_app_logo"
             android:contentDescription="SyncDroid" />
 
         <LinearLayout

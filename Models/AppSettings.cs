@@ -31,4 +31,8 @@ public class AppSettings
 
     public bool ConfirmBeforeMirDelete { get; set; } = true;
     public bool CheckLongFileNames { get; set; } = true;
+    public bool VerifyHashAfterTransfer { get; set; } = true;
+
+    // Authenticated / Trusted Devices
+    public List<TrustedDevice> TrustedDevices { get; set; } = new();
 }

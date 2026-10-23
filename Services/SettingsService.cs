@@ -11,6 +11,8 @@ public static class SettingsService
     private const int MaxHistoryCount = 15;
     private static readonly object FileLock = new();
 
+    public static event EventHandler? TrustedDevicesChanged;
+
     private static readonly string SettingsFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SyncDroidAndroid",
@@ -36,6 +38,7 @@ public static class SettingsService
             settings.PcPathHistory ??= new List<string>();
             settings.AndroidPathHistory ??= new List<string>();
             settings.PcEndpointHistory ??= new List<string>();
+            settings.TrustedDevices ??= new List<TrustedDevice>();
 
             if (string.IsNullOrWhiteSpace(settings.Language))
                 settings.Language = "zh-CN";
@@ -94,6 +97,104 @@ public static class SettingsService
         if (list.Count > MaxHistoryCount)
         {
             list.RemoveRange(MaxHistoryCount, list.Count - MaxHistoryCount);
+        }
+    }
+
+    public static string NormalizeHostIp(string? endpointOrIp)
+    {
+        if (string.IsNullOrWhiteSpace(endpointOrIp)) return "";
+        string trimmed = endpointOrIp.Trim();
+        if (trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed.Substring("https://".Length);
+        else if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed.Substring("http://".Length);
+        trimmed = trimmed.TrimEnd('/');
+
+        int colonIdx = trimmed.LastIndexOf(':');
+        if (colonIdx > 0 && int.TryParse(trimmed.Substring(colonIdx + 1), out _))
+        {
+            trimmed = trimmed.Substring(0, colonIdx);
+        }
+        return trimmed;
+    }
+
+    public static bool IsDeviceTrusted(string deviceType, string? fingerprint, string? ipOrEndpoint, string? deviceName = null)
+    {
+        var settings = Load();
+        string hostIp = NormalizeHostIp(ipOrEndpoint);
+
+        foreach (var d in settings.TrustedDevices)
+        {
+            if (!string.Equals(d.DeviceType, deviceType, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(fingerprint) &&
+                !string.IsNullOrWhiteSpace(d.Fingerprint) &&
+                string.Equals(d.Fingerprint, fingerprint.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            string savedHostIp = NormalizeHostIp(d.IpAddress);
+            if (!string.IsNullOrWhiteSpace(hostIp) &&
+                string.Equals(savedHostIp, hostIp, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static void AddTrustedDevice(string deviceType, string name, string ipOrEndpoint, string? fingerprint = null)
+    {
+        var settings = Load();
+        string hostIp = NormalizeHostIp(ipOrEndpoint);
+        string cleanFp = fingerprint?.Trim() ?? "";
+        string cleanName = string.IsNullOrWhiteSpace(name)
+            ? (string.IsNullOrWhiteSpace(hostIp) ? "Device" : hostIp)
+            : name.Trim();
+
+        settings.TrustedDevices.RemoveAll(d =>
+            string.Equals(d.DeviceType, deviceType, StringComparison.OrdinalIgnoreCase) &&
+            ((!string.IsNullOrWhiteSpace(cleanFp) && string.Equals(d.Fingerprint, cleanFp, StringComparison.OrdinalIgnoreCase)) ||
+             (!string.IsNullOrWhiteSpace(hostIp) && string.Equals(NormalizeHostIp(d.IpAddress), hostIp, StringComparison.OrdinalIgnoreCase))));
+
+        string idKey = !string.IsNullOrWhiteSpace(cleanFp) ? cleanFp : hostIp;
+        settings.TrustedDevices.Insert(0, new TrustedDevice
+        {
+            Id = $"{deviceType.ToLowerInvariant()}:{idKey}",
+            Name = cleanName,
+            IpAddress = string.IsNullOrWhiteSpace(ipOrEndpoint) ? hostIp : ipOrEndpoint.Trim(),
+            DeviceType = deviceType,
+            Fingerprint = cleanFp,
+            AuthenticatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+        });
+
+        Save(settings);
+        TrustedDevicesChanged?.Invoke(null, EventArgs.Empty);
+    }
+
+    public static void RemoveTrustedDevice(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return;
+        var settings = Load();
+        int removed = settings.TrustedDevices.RemoveAll(d => string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (removed > 0)
+        {
+            Save(settings);
+            TrustedDevicesChanged?.Invoke(null, EventArgs.Empty);
+        }
+    }
+
+    public static void ClearTrustedDevices()
+    {
+        var settings = Load();
+        if (settings.TrustedDevices.Count > 0)
+        {
+            settings.TrustedDevices.Clear();
+            Save(settings);
+            TrustedDevicesChanged?.Invoke(null, EventArgs.Empty);
         }
     }
 }

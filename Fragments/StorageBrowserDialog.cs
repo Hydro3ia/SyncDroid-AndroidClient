@@ -39,6 +39,7 @@ public static class StorageBrowserDialog
         var txtError = view.FindViewById<TextView>(Resource.Id.txt_browser_error)!;
         var btnCancel = view.FindViewById<MaterialButton>(Resource.Id.btn_browser_cancel)!;
         var btnSelect = view.FindViewById<MaterialButton>(Resource.Id.btn_browser_select)!;
+        var spinnerRoot = view.FindViewById<Spinner>(Resource.Id.spinner_root_drive)!;
 
         txtTitle.Text = isRemotePc ? loc.BrowserRemotePcTitle : loc.BrowserLocalTitle;
         btnNewFolder.Text = loc.NewFolderButton;
@@ -49,6 +50,25 @@ public static class StorageBrowserDialog
         btnCancel.Text = loc.CancelButton;
         btnSelect.Text = allowSelectFile ? loc.SelectFileButton : loc.SelectFolderButton;
 
+        BrowserEntriesAdapter? adapter = null;
+
+        if (isRemotePc)
+        {
+            spinnerRoot.Visibility = ViewStates.Visible;
+            var adapterRoot = new ArrayAdapter<string>(context, Android.Resource.Layout.SimpleSpinnerItem, new[] { "Root (/)", "C:\\", "D:\\", "E:\\", "F:\\" });
+            adapterRoot.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            spinnerRoot.Adapter = adapterRoot;
+            spinnerRoot.ItemSelected += (sender, e) =>
+            {
+                string? selected = spinnerRoot.SelectedItem?.ToString();
+                if (!string.IsNullOrEmpty(selected))
+                {
+                    string target = selected == "Root (/)" ? "/" : selected;
+                    _ = LoadDirectoryAsync(target);
+                }
+            };
+        }
+
         string currentDir = string.IsNullOrWhiteSpace(initialPath)
             ? (isRemotePc ? @"C:\" : "/storage/emulated/0")
             : initialPath.Trim();
@@ -57,6 +77,10 @@ public static class StorageBrowserDialog
         if (!isRemotePc && File.Exists(currentDir))
         {
             currentDir = Path.GetDirectoryName(currentDir)?.Replace('\\', '/') ?? "/storage/emulated/0";
+        }
+        else if (isRemotePc && currentDir == "/")
+        {
+            currentDir = "/";
         }
 
         string parentDir = currentDir;
@@ -68,8 +92,6 @@ public static class StorageBrowserDialog
         var dialogBuilder = new MaterialAlertDialogBuilder(context);
         dialogBuilder.SetView(view);
         var dialog = dialogBuilder.Create()!;
-
-        BrowserEntriesAdapter? adapter = null;
 
         async Task LoadDirectoryAsync(string path)
         {
