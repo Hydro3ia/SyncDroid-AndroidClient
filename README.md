@@ -2,7 +2,7 @@
 
 **SyncDroid for Android** is the official **Material Design 3 (MD3)** wireless companion and folder mirror-synchronization (`/MIR`) & direct file transfer client for **SyncDroid WinUI**, built with **.NET 10 for Android** (`net10.0-android`).
 
-- **Current Version**: `0.1.2.0 Release`
+- **Current Version**: `0.2.1.0 beta`
 - **Target Framework**: `net10.0-android` (API 26 ~ 36)
 - **UI Design**: Material Design 3 (`Theme.Material3.DayNight.NoActionBar`, Material You Dynamic Color, BottomNavigationView)
 
@@ -11,6 +11,7 @@
    - **PC ➔ Android (Push)** & **Android ➔ PC (Pull)**.
    - Size-based idempotent comparison (`StringComparer.OrdinalIgnoreCase` + exact byte `Size`) matching `SyncDroidWinUI`.
    - Switch between **`/MIR` Mirror Mode** (removes extra files in target) and **Incremental Merge Mode** (preserves existing extra files in target).
+   - Optional **Keep Source Folder** placement (e.g. `C:/aac` ➔ `target/aac`); when off, the source folder's contents go directly into the target directory.
    - Built-in safety guard against wiping root storage paths (`/storage/emulated/0`, `C:\`, etc.) and optional confirmation dialog before deleting extra files.
 2. **Direct File & Folder Transfer (Non-`/MIR` Mode + LocalSend Protocol v2.1)**:
    - Transfer single files, multiple files, or whole folders (`手机 ➔ 设备` or `设备 ➔ 手机`) without touching other files in the destination.
@@ -21,6 +22,7 @@
    - Built-in HTTP/REST streaming server (`TCP 45821`) and UDP LAN Broadcast Auto-Discovery (`UDP 45820`).
    - Atomic `.syncdroid_<guid>.part` file writing and automatic `MediaScannerConnection` refresh.
    - Android 14+ compliant `ForegroundService` (`dataSync|connectedDevice`) with `WakeLock`, `WifiLock`, live progress notification, and notification cancel action.
+   - **Close Receiver** notification action, plus optional **auto-close receiver when leaving the app** (Companion & LocalSend; restarts on return, never closes mid-transfer).
 4. **Multi-Language & UTF-8 / CJK Filename Safety**:
    - Instant runtime switching between **English (`en-US`)**, **Simplified Chinese (`zh-CN`)**, and **Traditional Chinese (`zh-TW`)**.
    - Automatic detection & Grapheme-safe truncation for filenames exceeding Android's `255`-byte UTF-8 limit (`<= 254` bytes) and Windows NTFS invalid character sanitization.
@@ -34,8 +36,8 @@ dotnet build SyncDroidAndroid.csproj -c Release
 Push a `v*` tag to build both configurations and publish the Release APK to GitHub Releases automatically:
 
 ```powershell
-git tag v0.2.0-beta
-git push origin v0.2.0-beta
+git tag v0.2.1-beta
+git push origin v0.2.1-beta
 ```
 
 Tags containing `-` are published as pre-releases. To sign Release builds with a stable key, configure the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`; otherwise CI falls back to a debug key.
