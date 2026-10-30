@@ -27,7 +27,7 @@
 
 ## Building from Source
 ```powershell
-dotnet build "SyncDroidAndroid.csproj" -c Release
+dotnet build SyncDroidAndroid.csproj -c Release
 ```
 
 ## Releasing
