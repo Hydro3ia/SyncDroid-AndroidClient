@@ -44,7 +44,7 @@ public class CompanionInfoResponse
 {
     public string DeviceName { get; set; } = "";
     public string Platform { get; set; } = "Android";
-    public string Version { get; set; } = "0.2.0.0";
+    public string Version { get; set; } = "0.2.1.0";
     public int ListeningPort { get; set; } = 45821;
     public long FreeSpaceBytes { get; set; }
     public string DefaultStorageRoot { get; set; } = "/storage/emulated/0";
@@ -54,7 +54,7 @@ public class CompanionPeer
 {
     public string DeviceName { get; set; } = "";
     public string Platform { get; set; } = "Windows";
-    public string Version { get; set; } = "0.2.0.0";
+    public string Version { get; set; } = "0.2.1.0";
     public string IpAddress { get; set; } = "";
     public int Port { get; set; } = 45821;
     public PeerProtocolType ProtocolType { get; set; } = PeerProtocolType.SyncDroidCompanion;

@@ -296,7 +296,7 @@ public class CompanionNetworkService
 
                 if (msg.StartsWith(DiscoveryMagicProbe, StringComparison.Ordinal))
                 {
-                    string reply = $"{DiscoveryMagicReply}|{GetDeviceFriendlyName()}|Android|0.2.0.0|{tcpPort}";
+                    string reply = $"{DiscoveryMagicReply}|{GetDeviceFriendlyName()}|Android|0.2.1.0|{tcpPort}";
                     byte[] replyBytes = Encoding.UTF8.GetBytes(reply);
                     await _udpResponder.SendAsync(replyBytes, replyBytes.Length, received.RemoteEndPoint);
 
@@ -355,7 +355,7 @@ public class CompanionNetworkService
         {
             using var udp = new UdpClient();
             udp.EnableBroadcast = true;
-            string probe = $"{DiscoveryMagicProbe}|{GetDeviceFriendlyName()}|Android|0.2.0.0|{ListeningPort}";
+            string probe = $"{DiscoveryMagicProbe}|{GetDeviceFriendlyName()}|Android|0.2.1.0|{ListeningPort}";
             byte[] data = Encoding.UTF8.GetBytes(probe);
 
             await udp.SendAsync(data, data.Length, new IPEndPoint(IPAddress.Broadcast, DiscoveryUdpPort));
@@ -437,7 +437,7 @@ public class CompanionNetworkService
             {
                 DeviceName = string.IsNullOrWhiteSpace(info?.DeviceName) ? host : info.DeviceName,
                 Platform = info?.Platform ?? "Windows",
-                Version = info?.Version ?? "0.2.0.0",
+                Version = info?.Version ?? "0.2.1.0",
                 IpAddress = host,
                 Port = port,
                 ProtocolType = PeerProtocolType.SyncDroidCompanion,
@@ -552,7 +552,7 @@ public class CompanionNetworkService
                 {
                     DeviceName = GetDeviceFriendlyName(),
                     Platform = "Android",
-                    Version = "0.2.0.0",
+                    Version = "0.2.1.0",
                     ListeningPort = ListeningPort,
                     FreeSpaceBytes = freeBytes,
                     DefaultStorageRoot = "/storage/emulated/0"

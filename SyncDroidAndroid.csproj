@@ -8,8 +8,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationId>com.syncdroid.client</ApplicationId>
-    <ApplicationVersion>2</ApplicationVersion>
-    <ApplicationDisplayVersion>0.2.0.0 beta</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.1.0 beta</ApplicationDisplayVersion>
     <AndroidStoreUncompressedFileExtensions />
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <AndroidPackageFormat>apk</AndroidPackageFormat>

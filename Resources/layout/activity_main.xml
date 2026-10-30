@@ -61,7 +61,7 @@
                 android:paddingEnd="6dp"
                 android:paddingTop="1dp"
                 android:paddingBottom="1dp"
-                android:text="0.1.2.0"
+                android:text="0.2.1.0"
                 android:fontFamily="monospace"
                 android:textSize="10sp"
                 android:textColor="?attr/colorOnSecondaryContainer" />
