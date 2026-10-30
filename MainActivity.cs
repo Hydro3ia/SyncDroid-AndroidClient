@@ -137,13 +137,55 @@ public class MainActivity : AppCompatActivity
         ResponsiveWindowService.Instance.WindowStateChanged += ApplyAdaptiveShellLayout;
         ResponsiveWindowService.Instance.StartTracking(this);
         ApplyAdaptiveShellLayout(ResponsiveWindowService.Instance.CurrentState);
+        RestartReceiverIfAutoClosed();
     }
 
     protected override void OnStop()
     {
         ResponsiveWindowService.Instance.WindowStateChanged -= ApplyAdaptiveShellLayout;
         ResponsiveWindowService.Instance.StopTracking();
+        AutoCloseReceiverIfEnabled();
         base.OnStop();
+    }
+
+    private void AutoCloseReceiverIfEnabled()
+    {
+        try
+        {
+            var settings = SettingsService.Load();
+            if (!settings.AutoCloseReceiverOnLeave) return;
+
+            // Keep background transfers alive: only close the receiver while idle.
+            if (SyncStateService.Instance.IsBusy) return;
+
+            if (!CompanionNetworkService.Instance.IsServerRunning && !LocalSendService.Instance.IsRunning)
+                return;
+
+            SyncStateService.Instance.ReceiverStoppedByAutoClose = true;
+            CompanionNetworkService.Instance.DisconnectFromPc();
+            CompanionNetworkService.Instance.StopServer();
+            StopCompanionForegroundService();
+            SyncStateService.Instance.AddLog("Receiver auto-closed (app left foreground).");
+        }
+        catch { }
+    }
+
+    private void RestartReceiverIfAutoClosed()
+    {
+        if (!SyncStateService.Instance.ReceiverStoppedByAutoClose) return;
+        SyncStateService.Instance.ReceiverStoppedByAutoClose = false;
+
+        try
+        {
+            var settings = SettingsService.Load();
+            if (settings.CompanionServerEnabled && !CompanionNetworkService.Instance.IsServerRunning)
+            {
+                CompanionNetworkService.Instance.StartServer(settings.CompanionPort);
+                StartCompanionForegroundService();
+                SyncStateService.Instance.AddLog("Receiver restarted (app returned to foreground).");
+            }
+        }
+        catch { }
     }
 
     public override void OnConfigurationChanged(Android.Content.Res.Configuration newConfig)

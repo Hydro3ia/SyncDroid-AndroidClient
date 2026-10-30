@@ -19,6 +19,7 @@ public class SyncForegroundService : Service
     public const string ActionStartService = "com.syncdroid.client.ACTION_START";
     public const string ActionStopService = "com.syncdroid.client.ACTION_STOP";
     public const string ActionCancelSync = "com.syncdroid.client.ACTION_CANCEL_SYNC";
+    public const string ActionCloseReceiver = "com.syncdroid.client.ACTION_CLOSE_RECEIVER";
 
     private PowerManager.WakeLock? _wakeLock;
     private WifiManager.WifiLock? _wifiLock;
@@ -42,6 +43,24 @@ public class SyncForegroundService : Service
         {
             SyncStateService.Instance.CancelCurrentOperation();
             return StartCommandResult.Sticky;
+        }
+
+        if (action == ActionCloseReceiver)
+        {
+            try
+            {
+                if (SyncStateService.Instance.IsBusy)
+                {
+                    SyncStateService.Instance.CancelCurrentOperation();
+                }
+                CompanionNetworkService.Instance.DisconnectFromPc();
+                CompanionNetworkService.Instance.StopServer();
+            }
+            catch { }
+
+            StopForeground(StopForegroundFlags.Remove);
+            StopSelf();
+            return StartCommandResult.NotSticky;
         }
 
         if (action == ActionStopService)
@@ -116,6 +135,15 @@ public class SyncForegroundService : Service
                 this, 1, cancelIntent, PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
 
             builder.AddAction(Resource.Drawable.ic_delete, loc.CancelButton, pendingCancel);
+        }
+        else
+        {
+            var closeIntent = new Intent(this, typeof(SyncForegroundService));
+            closeIntent.SetAction(ActionCloseReceiver);
+            var pendingClose = PendingIntent.GetService(
+                this, 2, closeIntent, PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
+
+            builder.AddAction(Resource.Drawable.ic_power_off, loc.CloseReceiverButton, pendingClose);
         }
 
         return builder.Build();

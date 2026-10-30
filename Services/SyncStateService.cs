@@ -22,6 +22,12 @@ public class SyncStateService
     public string StatusText { get; private set; } = LocalizationService.Instance.StatusReady;
     public bool IsBusy { get; private set; }
 
+    /// <summary>
+    /// True when the receiver was stopped by the "auto-close on leaving app" feature.
+    /// Used to restart the receiver when the app returns to the foreground.
+    /// </summary>
+    public bool ReceiverStoppedByAutoClose { get; set; }
+
     // Receive Session State
     public string ActiveReceiveSessionId { get; private set; } = "";
     public string ReceiveSenderDisplay { get; private set; } = "";

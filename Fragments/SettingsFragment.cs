@@ -46,6 +46,7 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
     private MaterialSwitch? _switchLocalSendEnabled;
     private MaterialSwitch? _switchConfirmDelete;
     private MaterialSwitch? _switchCheckLongNames;
+    private MaterialSwitch? _switchAutoCloseReceiver;
 
     private TextView? _txtAboutTitle;
     private TextView? _txtAboutDesc;
@@ -87,6 +88,7 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
         _switchLocalSendEnabled = view.FindViewById<MaterialSwitch>(Resource.Id.switch_localsend_enabled);
         _switchConfirmDelete = view.FindViewById<MaterialSwitch>(Resource.Id.switch_confirm_delete);
         _switchCheckLongNames = view.FindViewById<MaterialSwitch>(Resource.Id.switch_check_long_names);
+        _switchAutoCloseReceiver = view.FindViewById<MaterialSwitch>(Resource.Id.switch_auto_close_receiver);
 
         _txtAboutTitle = view.FindViewById<TextView>(Resource.Id.txt_about_title);
         _txtAboutDesc = view.FindViewById<TextView>(Resource.Id.txt_about_desc);
@@ -154,6 +156,7 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
         if (_switchLocalSendEnabled != null) _switchLocalSendEnabled.Checked = settings.LocalSendEnabled;
         if (_switchConfirmDelete != null) _switchConfirmDelete.Checked = settings.ConfirmBeforeMirDelete;
         if (_switchCheckLongNames != null) _switchCheckLongNames.Checked = settings.CheckLongFileNames;
+        if (_switchAutoCloseReceiver != null) _switchAutoCloseReceiver.Checked = settings.AutoCloseReceiverOnLeave;
 
         _suppressEvents = false;
     }
@@ -284,6 +287,14 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
             SettingsService.Save(settings);
         };
 
+        _switchAutoCloseReceiver!.CheckedChange += (_, e) =>
+        {
+            if (_suppressEvents) return;
+            var settings = SettingsService.Load();
+            settings.AutoCloseReceiverOnLeave = e.IsChecked;
+            SettingsService.Save(settings);
+        };
+
         _btnGithub!.Click += (_, _) => OpenUrl("https://github.com/Hydro3ia/SyncDroid");
         _btnPrivacy!.Click += (_, _) => OpenUrl("https://github.com/Hydro3ia/SyncDroid/blob/main/PRIVACY.md");
     }
@@ -333,6 +344,7 @@ public class SettingsFragment : AndroidX.Fragment.App.Fragment
         if (_switchLocalSendEnabled != null) _switchLocalSendEnabled.Text = loc.LocalSendSwitchLabel;
         if (_switchConfirmDelete != null) _switchConfirmDelete.Text = loc.ConfirmDeleteSwitch;
         if (_switchCheckLongNames != null) _switchCheckLongNames.Text = loc.CheckLongNamesSwitch;
+        if (_switchAutoCloseReceiver != null) _switchAutoCloseReceiver.Text = loc.AutoCloseReceiverSwitch;
 
         if (_txtAboutTitle != null) _txtAboutTitle.Text = loc.AboutSectionTitle;
         if (_txtAboutDesc != null) _txtAboutDesc.Text = loc.AboutAppDescription;

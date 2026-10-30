@@ -71,6 +71,14 @@ public class LocalizationService : ObservableObject
         "Mirror Mode — Delete extra files in target",
         "镜像同步模式 — 自动清理目标端多余文件",
         "鏡像同步模式 — 自動清理目標端多餘檔案");
+    public string KeepSourceFolderSwitch => T(
+        "Keep source folder — put source folder inside target (e.g. C:/aac → target/aac)",
+        "保留当前文件夹 — 将源文件夹放入目标目录内（例：C:/aac → 目标目录/aac）",
+        "保留目前資料夾 — 將來源資料夾放入目標目錄內（例：C:/aac → 目標目錄/aac）");
+    public string KeepSourceFolderOffHint => T(
+        "Off: contents of the source folder go directly into the target directory",
+        "关闭：源文件夹内的文件直接放入目标目录",
+        "關閉：來源資料夾內的檔案直接放入目標目錄");
     public string PcDirectoryLabel => T("Target Device Directory", "目标设备文件夹路径", "目標裝置資料夾路徑");
     public string AndroidDirectoryLabel => T("Android Device Directory", "Android 手机文件夹路径", "Android 手機資料夾路徑");
     public string SourceBadge => T("SOURCE", "源目录 (SOURCE)", "來源目錄 (SOURCE)");
@@ -80,6 +88,7 @@ public class LocalizationService : ObservableObject
     public string BrowseButton => T("Browse...", "浏览...", "瀏覽...");
     public string StartSyncButton => T("Start Sync", "开始同步", "開始同步");
     public string CancelButton => T("Cancel", "取消", "取消");
+    public string CloseReceiverButton => T("Close Receiver", "关闭接收端", "關閉接收端");
     public string ActivityLogsHeader => T("Activity Logs", "同步活动日志", "同步活動日誌");
     public string ClearButton => T("Clear", "清空", "清除");
     public string CopyAllButton => T("Copy All", "复制日志", "複製日誌");
@@ -224,6 +233,10 @@ public class LocalizationService : ObservableObject
         "啟用 LocalSend 協議 v2.1 探索與接收服務 (連接埠 53317)");
     public string ConfirmDeleteSwitch => T("Confirm before /MIR deletes extra target files", "/MIR 镜像同步删除目标端多余文件前弹窗确认", "/MIR 鏡像同步刪除目標端多餘檔案前彈窗確認");
     public string CheckLongNamesSwitch => T("Detect & handle filenames > 255 UTF-8 bytes", "自动检测并处理超过 255 字节 (UTF-8) 的超长文件名", "自動偵測並處理超過 255 位元組 (UTF-8) 的超長檔名");
+    public string AutoCloseReceiverSwitch => T(
+        "Auto-close receiver when leaving the app (restarts on return; not while transferring)",
+        "离开软件时自动关闭接收端（返回时自动重启，传输中不关闭）",
+        "離開軟體時自動關閉接收端（返回時自動重啟，傳輸中不關閉）");
     public string AboutSectionTitle => T("About This App", "关于此应用", "關於此應用程式");
     public string AboutAppDescription => T(
         "SyncDroid for Android is a Material Design 3 wireless companion, CJK-safe folder mirror (/MIR), and LocalSend-compatible file transfer client.",

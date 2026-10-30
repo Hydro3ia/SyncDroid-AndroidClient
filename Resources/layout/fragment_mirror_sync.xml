@@ -133,6 +133,23 @@
                 android:checked="true"
                 android:text="Mirror Mode — Delete extra files in target"
                 android:textSize="12sp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_keep_source_folder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="false"
+                android:text="Keep source folder — put source folder inside target (e.g. C:/aac → target/aac)"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/txt_keep_source_folder_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="48dp"
+                android:text="Off: contents of the source folder go directly into the target directory"
+                android:textColor="?android:attr/textColorSecondary"
+                android:textSize="11sp" />
           </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

@@ -39,6 +39,8 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
     private MaterialButton? _btnDirPcToAndroid;
     private MaterialButton? _btnDirAndroidToPc;
     private MaterialSwitch? _switchMirMode;
+    private MaterialSwitch? _switchKeepSourceFolder;
+    private TextView? _txtKeepSourceFolderHint;
 
     private LinearLayout? _layoutPathsContainer;
     private LinearLayout? _panelPcPath;
@@ -87,6 +89,8 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
         _btnDirPcToAndroid = view.FindViewById<MaterialButton>(Resource.Id.btn_dir_pc_to_android);
         _btnDirAndroidToPc = view.FindViewById<MaterialButton>(Resource.Id.btn_dir_android_to_pc);
         _switchMirMode = view.FindViewById<MaterialSwitch>(Resource.Id.switch_mir_mode);
+        _switchKeepSourceFolder = view.FindViewById<MaterialSwitch>(Resource.Id.switch_keep_source_folder);
+        _txtKeepSourceFolderHint = view.FindViewById<TextView>(Resource.Id.txt_keep_source_folder_hint);
 
         _layoutPathsContainer = view.FindViewById<LinearLayout>(Resource.Id.layout_paths_container);
         _panelPcPath = view.FindViewById<LinearLayout>(Resource.Id.panel_pc_path);
@@ -119,6 +123,8 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
         _logAdapter = new LogListAdapter(SyncStateService.Instance.Logs);
         _recyclerLogs!.SetLayoutManager(new LinearLayoutManager(Context));
         _recyclerLogs.SetAdapter(_logAdapter);
+
+        _switchKeepSourceFolder!.Checked = SettingsService.Load().MirKeepSourceFolder;
 
         WireEvents();
         LoadSavedPathsForDirection();
@@ -194,6 +200,13 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
         {
             _isMirMode = e.IsChecked;
             UpdateRoleAndOrderLayout();
+        };
+
+        _switchKeepSourceFolder!.CheckedChange += (_, e) =>
+        {
+            var settings = SettingsService.Load();
+            settings.MirKeepSourceFolder = e.IsChecked;
+            SettingsService.Save(settings);
         };
 
         _btnBrowsePc!.Click += (_, _) =>
@@ -428,12 +441,15 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
                 confirmDelete = count => AskConfirmDeleteAsync(Context, count);
             }
 
+            bool keepSourceFolder = _switchKeepSourceFolder?.Checked ?? false;
+
             if (_isPcToAndroid)
             {
                 await MirrorSyncEngine.Instance.SyncPcToAndroidAsync(
                     pcPath,
                     androidPath,
                     _isMirMode,
+                    keepSourceFolder,
                     settings.CheckLongFileNames,
                     confirmDelete,
                     token);
@@ -444,6 +460,7 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
                     androidPath,
                     pcPath,
                     _isMirMode,
+                    keepSourceFolder,
                     settings.CheckLongFileNames,
                     confirmDelete,
                     token);
@@ -513,6 +530,8 @@ public class MirrorSyncFragment : AndroidX.Fragment.App.Fragment
         if (_btnDirPcToAndroid != null) _btnDirPcToAndroid.Text = loc.DirPcToAndroid;
         if (_btnDirAndroidToPc != null) _btnDirAndroidToPc.Text = loc.DirAndroidToPc;
         if (_switchMirMode != null) _switchMirMode.Text = loc.MirModeSwitchLabel;
+        if (_switchKeepSourceFolder != null) _switchKeepSourceFolder.Text = loc.KeepSourceFolderSwitch;
+        if (_txtKeepSourceFolderHint != null) _txtKeepSourceFolderHint.Text = loc.KeepSourceFolderOffHint;
 
         if (_txtPcDirLabel != null) _txtPcDirLabel.Text = loc.PcDirectoryLabel;
         if (_txtAndroidDirLabel != null) _txtAndroidDirLabel.Text = loc.AndroidDirectoryLabel;

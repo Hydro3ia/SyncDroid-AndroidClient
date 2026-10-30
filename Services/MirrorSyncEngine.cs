@@ -16,14 +16,28 @@ public class MirrorSyncEngine
     private MirrorSyncEngine() { }
 
     /// <summary>
+    /// Returns the last path segment (folder name) of a mixed-separator path.
+    /// Returns "" for drive roots (e.g. "C:") so callers fall back to writing directly into the target.
+    /// </summary>
+    private static string GetLastPathSegment(string path)
+    {
+        string trimmed = path.Trim().TrimEnd('/', '\\');
+        int idx = trimmed.LastIndexOfAny(new[] { '/', '\\' });
+        string name = idx >= 0 ? trimmed[(idx + 1)..] : trimmed;
+        return name.Contains(':') ? "" : name;
+    }
+
+    /// <summary>
     /// Synchronizes from Windows PC (Source) to Android (Target).
     /// When isMirMode is true, deletes extra files in Android target folder that do not exist on PC.
+    /// When keepSourceFolder is true, files are placed under target/&lt;source-folder-name&gt;/ instead of directly in target.
     /// Comparison rule matches SyncDroidWinUI: relative path (OrdinalIgnoreCase) + exact byte Size.
     /// </summary>
     public async Task SyncPcToAndroidAsync(
         string pcPath,
         string androidPath,
         bool isMirMode,
+        bool keepSourceFolder,
         bool checkLongFileNames,
         Func<int, Task<bool>>? confirmDeleteCallback,
         CancellationToken token)
@@ -34,22 +48,33 @@ public class MirrorSyncEngine
         pcPath = pcPath.Trim().TrimEnd('/', '\\');
         androidPath = androidPath.Trim().Replace('\\', '/').TrimEnd('/');
 
-        if (isMirMode && LocalStorageScanner.IsDangerousRootPath(androidPath))
+        string sourceFolderName = GetLastPathSegment(pcPath);
+        string effectiveAndroidPath = keepSourceFolder && sourceFolderName.Length > 0
+            ? $"{androidPath}/{sourceFolderName}"
+            : androidPath;
+        if (keepSourceFolder)
         {
-            throw new InvalidOperationException(LocalizationService.Instance.T(
-                $"Safety Block: Cannot use root storage path '{androidPath}' as /MIR target because extra files would be deleted. Please choose a subfolder.",
-                $"安全拦截：禁止将存储根目录 '{androidPath}' 直接作为 /MIR 镜像目标目录（会清空目录内其他文件），请选择具体子文件夹。",
-                $"安全攔截：禁止將儲存根目錄 '{androidPath}' 直接作為 /MIR 鏡像目標目錄（會清空目錄內其他檔案），請選擇具體子資料夾。"));
+            state.AddLog(sourceFolderName.Length > 0
+                ? $"Keep source folder ON: Android target root = {effectiveAndroidPath}"
+                : "Keep source folder ON, but source path has no folder name — writing directly into the target directory.");
         }
 
-        Directory.CreateDirectory(androidPath);
+        if (isMirMode && LocalStorageScanner.IsDangerousRootPath(effectiveAndroidPath))
+        {
+            throw new InvalidOperationException(LocalizationService.Instance.T(
+                $"Safety Block: Cannot use root storage path '{effectiveAndroidPath}' as /MIR target because extra files would be deleted. Please choose a subfolder.",
+                $"安全拦截：禁止将存储根目录 '{effectiveAndroidPath}' 直接作为 /MIR 镜像目标目录（会清空目录内其他文件），请选择具体子文件夹。",
+                $"安全攔截：禁止將儲存根目錄 '{effectiveAndroidPath}' 直接作為 /MIR 鏡像目標目錄（會清空目錄內其他檔案），請選擇具體子資料夾。"));
+        }
+
+        Directory.CreateDirectory(effectiveAndroidPath);
 
         state.AddLog($"Scanning PC source directory: {pcPath}");
         var remoteManifest = await net.GetRemotePcTreeManifestAsync(pcPath, token);
         var remoteFiles = remoteManifest.Files;
 
-        state.AddLog($"Scanning Android target directory: {androidPath}");
-        var localManifest = LocalStorageScanner.GetDirectoryTreeManifest(androidPath);
+        state.AddLog($"Scanning Android target directory: {effectiveAndroidPath}");
+        var localManifest = LocalStorageScanner.GetDirectoryTreeManifest(effectiveAndroidPath);
         var localByRelPath = localManifest.Files.ToDictionary(
             f => f.RelativePath,
             f => f,
@@ -76,7 +101,7 @@ public class MirrorSyncEngine
                 continue;
             }
 
-            string targetLocalPath = $"{androidPath}/{relPath}";
+            string targetLocalPath = $"{effectiveAndroidPath}/{relPath}";
             bool shouldPull = true;
 
             if (localByRelPath.TryGetValue(relPath, out var existingLocal))
@@ -163,7 +188,7 @@ public class MirrorSyncEngine
                         state.UpdateProgress(70 + (delProcessed * 30) / (delTotal > 0 ? delTotal : 1));
                     }
 
-                    LocalStorageScanner.CleanEmptySubdirectories(androidPath);
+                    LocalStorageScanner.CleanEmptySubdirectories(effectiveAndroidPath);
                 }
                 else
                 {
@@ -186,11 +211,13 @@ public class MirrorSyncEngine
     /// <summary>
     /// Synchronizes from Android (Source) to Windows PC (Target).
     /// When isMirMode is true, deletes extra files in PC target folder that do not exist on Android.
+    /// When keepSourceFolder is true, files are placed under target\&lt;source-folder-name&gt;\ instead of directly in target.
     /// </summary>
     public async Task SyncAndroidToPcAsync(
         string androidPath,
         string pcPath,
         bool isMirMode,
+        bool keepSourceFolder,
         bool checkLongFileNames,
         Func<int, Task<bool>>? confirmDeleteCallback,
         CancellationToken token)
@@ -206,20 +233,34 @@ public class MirrorSyncEngine
             throw new DirectoryNotFoundException($"Android source folder does not exist: {androidPath}");
         }
 
-        if (isMirMode && LocalStorageScanner.IsDangerousRootPath(pcPath))
+        string sourceFolderName = GetLastPathSegment(androidPath);
+        string effectivePcPath = pcPath;
+        if (keepSourceFolder && sourceFolderName.Length > 0)
+        {
+            string safeName = FileNameLengthHelper.SanitizeRelativePathForWindows(sourceFolderName, out _);
+            effectivePcPath = $"{pcPath}\\{safeName}";
+        }
+        if (keepSourceFolder)
+        {
+            state.AddLog(sourceFolderName.Length > 0
+                ? $"Keep source folder ON: PC target root = {effectivePcPath}"
+                : "Keep source folder ON, but source path has no folder name — writing directly into the target directory.");
+        }
+
+        if (isMirMode && LocalStorageScanner.IsDangerousRootPath(effectivePcPath))
         {
             throw new InvalidOperationException(LocalizationService.Instance.T(
-                $"Safety Block: Cannot use root drive '{pcPath}' as /MIR target.",
-                $"安全拦截：禁止将磁盘根目录 '{pcPath}' 直接作为 /MIR 镜像目标目录。",
-                $"安全攔截：禁止將磁碟根目錄 '{pcPath}' 直接作為 /MIR 鏡像目標目錄。"));
+                $"Safety Block: Cannot use root drive '{effectivePcPath}' as /MIR target.",
+                $"安全拦截：禁止将磁盘根目录 '{effectivePcPath}' 直接作为 /MIR 镜像目标目录。",
+                $"安全攔截：禁止將磁碟根目錄 '{effectivePcPath}' 直接作為 /MIR 鏡像目標目錄。"));
         }
 
         state.AddLog($"Scanning Android source directory: {androidPath}");
         var localManifest = LocalStorageScanner.GetDirectoryTreeManifest(androidPath);
         var localFiles = localManifest.Files;
 
-        state.AddLog($"Scanning PC target directory: {pcPath}");
-        var remoteManifest = await net.GetRemotePcTreeManifestAsync(pcPath, token);
+        state.AddLog($"Scanning PC target directory: {effectivePcPath}");
+        var remoteManifest = await net.GetRemotePcTreeManifestAsync(effectivePcPath, token);
         var remoteByRelPath = remoteManifest.Files.ToDictionary(
             f => f.RelativePath.Replace('\\', '/'),
             f => f,
@@ -271,7 +312,7 @@ public class MirrorSyncEngine
             {
                 long baseCompleted = completedBytes;
                 int nextIdx = processed + 1;
-                string targetRemotePath = $"{pcPath.Replace('/', '\\')}\\{relPath.Replace('/', '\\')}";
+                string targetRemotePath = $"{effectivePcPath.Replace('/', '\\')}\\{relPath.Replace('/', '\\')}";
                 state.AddLog($"Pushing to PC: {relPath} ({FileHashHelper.FormatByteSize(localEntry.Size)})");
                 var fi = new FileInfo(localEntry.FullPath);
                 var (bytesSent, elapsedSec, _) = await net.PushFileToPcAsync(

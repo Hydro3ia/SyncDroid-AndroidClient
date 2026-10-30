@@ -365,6 +365,14 @@
             android:checked="true"
             android:text="Detect &amp; handle filenames &gt; 255 UTF-8 bytes"
             android:textSize="12sp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switch_auto_close_receiver"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:text="Auto-close receiver when leaving the app (restarts on return; not while transferring)"
+            android:textSize="12sp" />
       </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -33,6 +33,12 @@ public class AppSettings
     public bool CheckLongFileNames { get; set; } = true;
     public bool VerifyHashAfterTransfer { get; set; } = true;
 
+    // Mirror Sync: place source folder inside target directory (e.g. C:/aac -> target/aac)
+    public bool MirKeepSourceFolder { get; set; } = false;
+
+    // Auto-close receiver (Companion + LocalSend) when the app leaves the foreground
+    public bool AutoCloseReceiverOnLeave { get; set; } = false;
+
     // Authenticated / Trusted Devices
     public List<TrustedDevice> TrustedDevices { get; set; } = new();
 }
