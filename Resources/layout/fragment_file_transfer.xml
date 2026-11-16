@@ -69,7 +69,7 @@
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_tx_android_to_pc"
-                  style="?attr/materialButtonOutlinedStyle"
+                  style="@style/Widget.SyncDroid.Button.Toggle"
                   android:layout_width="0dp"
                   android:layout_height="wrap_content"
                   android:layout_weight="1"
@@ -78,7 +78,7 @@
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_tx_pc_to_android"
-                  style="?attr/materialButtonOutlinedStyle"
+                  style="@style/Widget.SyncDroid.Button.Toggle"
                   android:layout_width="0dp"
                   android:layout_height="wrap_content"
                   android:layout_weight="1"
@@ -106,7 +106,7 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_conflict_skip"
-              style="?attr/materialButtonOutlinedStyle"
+              style="@style/Widget.SyncDroid.Button.Toggle"
               android:layout_width="0dp"
               android:layout_height="wrap_content"
               android:layout_weight="1"
@@ -115,7 +115,7 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_conflict_overwrite"
-              style="?attr/materialButtonOutlinedStyle"
+              style="@style/Widget.SyncDroid.Button.Toggle"
               android:layout_width="0dp"
               android:layout_height="wrap_content"
               android:layout_weight="1"
@@ -124,7 +124,7 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_conflict_rename"
-              style="?attr/materialButtonOutlinedStyle"
+              style="@style/Widget.SyncDroid.Button.Toggle"
               android:layout_width="0dp"
               android:layout_height="wrap_content"
               android:layout_weight="1"
@@ -167,9 +167,9 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_clear_queue"
-              style="@style/Widget.Material3.Button.TextButton"
+              style="@style/Widget.SyncDroid.Button.Text.Compact"
               android:layout_width="wrap_content"
-              android:layout_height="34dp"
+              android:layout_height="wrap_content"
               android:text="Clear Queue"
               android:textSize="11sp" />
         </LinearLayout>
@@ -186,9 +186,13 @@
               android:layout_width="0dp"
               android:layout_height="wrap_content"
               android:layout_weight="1"
+              android:minWidth="0dp"
+              android:paddingStart="10dp"
+              android:paddingEnd="10dp"
               android:text="+ Add File"
               android:textSize="12sp"
-              app:icon="@drawable/ic_file" />
+              app:icon="@drawable/ic_file"
+              app:iconGravity="textStart" />
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_add_folder"
@@ -197,9 +201,13 @@
               android:layout_height="wrap_content"
               android:layout_weight="1"
               android:layout_marginStart="8dp"
+              android:minWidth="0dp"
+              android:paddingStart="10dp"
+              android:paddingEnd="10dp"
               android:text="+ Add Folder"
               android:textSize="12sp"
-              app:icon="@drawable/ic_folder" />
+              app:icon="@drawable/ic_folder"
+              app:iconGravity="textStart" />
         </LinearLayout>
 
         <TextView
@@ -297,11 +305,13 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_start_transfer"
-              android:layout_width="wrap_content"
+              android:layout_width="0dp"
               android:layout_height="wrap_content"
+              android:layout_weight="1"
               android:text="Start Transfer"
               android:textSize="13sp"
-              app:icon="@drawable/ic_swap_horiz" />
+              app:icon="@drawable/ic_swap_horiz"
+              app:iconGravity="textStart" />
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_cancel_transfer"
@@ -311,16 +321,20 @@
               android:layout_marginStart="8dp"
               android:text="Cancel"
               android:textSize="13sp" />
+        </LinearLayout>
 
-          <View
-              android:layout_width="0dp"
-              android:layout_height="1dp"
-              android:layout_weight="1" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
           <TextView
               android:id="@+id/txt_tx_status"
-              android:layout_width="wrap_content"
+              android:layout_width="0dp"
               android:layout_height="wrap_content"
+              android:layout_weight="1"
               android:text="Ready"
               android:textSize="12sp"
               android:textStyle="bold" />

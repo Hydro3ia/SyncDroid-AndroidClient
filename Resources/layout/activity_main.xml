@@ -138,6 +138,8 @@
         android:visibility="gone"
         app:labelVisibilityMode="labeled"
         app:menuGravity="top"
+        app:itemTextAppearanceInactive="@style/TextAppearance.SyncDroid.BottomNav"
+        app:itemTextAppearanceActive="@style/TextAppearance.SyncDroid.BottomNav"
         app:menu="@menu/bottom_nav_menu" />
 
     <View
@@ -152,16 +154,21 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:layout_marginBottom="80dp" />
+        android:layout_marginBottom="76dp" />
   </LinearLayout>
 
   <!-- MD3 Bottom Navigation Bar (Compact Portrait) -->
   <com.google.android.material.bottomnavigation.BottomNavigationView
       android:id="@+id/bottom_navigation"
       android:layout_width="match_parent"
-      android:layout_height="80dp"
+      android:layout_height="wrap_content"
+      android:minHeight="76dp"
       android:layout_gravity="bottom"
       app:labelVisibilityMode="labeled"
+      app:itemPaddingTop="10dp"
+      app:itemPaddingBottom="10dp"
+      app:itemTextAppearanceInactive="@style/TextAppearance.SyncDroid.BottomNav"
+      app:itemTextAppearanceActive="@style/TextAppearance.SyncDroid.BottomNav"
       app:menu="@menu/bottom_nav_menu" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

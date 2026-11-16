@@ -93,9 +93,9 @@
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_open_receive_folder"
-                  style="@style/Widget.Material3.Button.TonalButton"
+                  style="@style/Widget.SyncDroid.Button.Tonal.Compact"
                   android:layout_width="wrap_content"
-                  android:layout_height="36dp"
+                  android:layout_height="wrap_content"
                   android:layout_marginStart="8dp"
                   android:text="Open Folder"
                   android:textSize="11sp"
@@ -182,16 +182,17 @@
 
                   <com.google.android.material.button.MaterialButton
                       android:id="@+id/btn_accept_transfer_banner"
+                      style="@style/Widget.SyncDroid.Button.Compact"
                       android:layout_width="wrap_content"
-                      android:layout_height="36dp"
+                      android:layout_height="wrap_content"
                       android:text="Accept &amp; Authenticate"
                       android:textSize="12sp" />
 
                   <com.google.android.material.button.MaterialButton
                       android:id="@+id/btn_decline_transfer_banner"
-                      style="?attr/materialButtonOutlinedStyle"
+                      style="@style/Widget.SyncDroid.Button.Outlined.Compact"
                       android:layout_width="wrap_content"
-                      android:layout_height="36dp"
+                      android:layout_height="wrap_content"
                       android:layout_marginStart="8dp"
                       android:text="Decline"
                       android:textSize="12sp" />
@@ -261,9 +262,9 @@
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_clear_receive_list"
-                  style="@style/Widget.Material3.Button.TextButton"
+                  style="@style/Widget.SyncDroid.Button.Text.Compact"
                   android:layout_width="wrap_content"
-                  android:layout_height="34dp"
+                  android:layout_height="wrap_content"
                   android:text="Clear List"
                   android:textSize="11sp" />
             </LinearLayout>
@@ -390,17 +391,17 @@
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_receive_clear_logs"
-                  style="@style/Widget.Material3.Button.TextButton"
+                  style="@style/Widget.SyncDroid.Button.Text.Compact"
                   android:layout_width="wrap_content"
-                  android:layout_height="36dp"
+                  android:layout_height="wrap_content"
                   android:text="Clear"
                   android:textSize="12sp" />
 
               <com.google.android.material.button.MaterialButton
                   android:id="@+id/btn_receive_copy_logs"
-                  style="@style/Widget.Material3.Button.TonalButton"
+                  style="@style/Widget.SyncDroid.Button.Tonal.Compact"
                   android:layout_width="wrap_content"
-                  android:layout_height="36dp"
+                  android:layout_height="wrap_content"
                   android:layout_marginStart="4dp"
                   android:text="Copy All"
                   android:textSize="12sp" />

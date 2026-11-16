@@ -13,7 +13,38 @@
       android:orientation="vertical"
       android:padding="12dp">
 
-    <!-- Header Row: Back to Settings + Title + Count + Remove All -->
+    <!-- Header Action Row: Back to Settings + Remove All -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+      <com.google.android.material.button.MaterialButton
+          android:id="@+id/btn_back_to_settings"
+          style="@style/Widget.SyncDroid.Button.Outlined.Compact"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Back to Settings"
+          android:textSize="12sp" />
+
+      <View
+          android:layout_width="0dp"
+          android:layout_height="1dp"
+          android:layout_weight="1" />
+
+      <com.google.android.material.button.MaterialButton
+          android:id="@+id/btn_remove_all_devices"
+          style="@style/Widget.SyncDroid.Button.Tonal.Compact"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Remove All"
+          android:textSize="12sp"
+          app:icon="@drawable/ic_delete" />
+    </LinearLayout>
+
+    <!-- Title + Count Row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -21,32 +52,20 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-      <com.google.android.material.button.MaterialButton
-          android:id="@+id/btn_back_to_settings"
-          style="?attr/materialButtonOutlinedStyle"
-          android:layout_width="wrap_content"
-          android:layout_height="38dp"
-          android:text="Back to Settings"
-          android:textSize="12sp" />
-
       <TextView
           android:id="@+id/txt_manage_devices_title"
           android:layout_width="0dp"
           android:layout_height="wrap_content"
           android:layout_weight="1"
-          android:layout_marginStart="10dp"
           android:text="Manage Authenticated Devices"
           android:textStyle="bold"
-          android:textSize="15sp"
-          android:singleLine="true"
-          android:ellipsize="end" />
+          android:textSize="16sp" />
 
       <TextView
           android:id="@+id/txt_trusted_device_count"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
-          android:layout_marginStart="6dp"
-          android:layout_marginEnd="8dp"
+          android:layout_marginStart="8dp"
           android:background="?attr/colorSecondaryContainer"
           android:paddingStart="7dp"
           android:paddingEnd="7dp"
@@ -57,15 +76,6 @@
           android:textSize="11sp"
           android:textStyle="bold"
           android:textColor="?attr/colorOnSecondaryContainer" />
-
-      <com.google.android.material.button.MaterialButton
-          android:id="@+id/btn_remove_all_devices"
-          style="@style/Widget.Material3.Button.TonalButton"
-          android:layout_width="wrap_content"
-          android:layout_height="38dp"
-          android:text="Remove All"
-          android:textSize="12sp"
-          app:icon="@drawable/ic_delete" />
     </LinearLayout>
 
     <!-- Description Card -->

@@ -95,6 +95,8 @@ public class MainActivity : AppCompatActivity
             SelectNavigationItem(e.Item.ItemId, forceSwitch: _inManageDevicesSubPage);
         };
 
+        _bottomNav.LayoutChange += (_, _) => UpdateFragmentContainerBottomMargin();
+
         CompanionNetworkService.Instance.ConfirmFirstTimeDeviceAsync = ConfirmFirstTimeSyncDroidDeviceOnUiAsync;
         SyncStateService.Instance.IncomingTransferSessionStarted += OnIncomingTransferSessionStarted;
         SyncStateService.Instance.ConfirmationResolvedFromBanner += OnConfirmationResolvedFromBanner;
@@ -398,11 +400,8 @@ public class MainActivity : AppCompatActivity
         }
         _bottomNav.Visibility = useRail ? ViewStates.Gone : ViewStates.Visible;
 
-        if (_fragmentContainer.LayoutParameters is LinearLayout.LayoutParams lp)
-        {
-            lp.BottomMargin = useRail ? 0 : (int)Math.Round(80 * density);
-            _fragmentContainer.LayoutParameters = lp;
-        }
+        UpdateFragmentContainerBottomMargin();
+        ConfigureNavigationLabels();
 
         if (_txtConnectionPill != null)
         {
@@ -684,6 +683,74 @@ public class MainActivity : AppCompatActivity
             railMenu.FindItem(Resource.Id.nav_receive)?.SetTitle(loc.NavReceive);
             railMenu.FindItem(Resource.Id.nav_companion)?.SetTitle(loc.NavCompanion);
             railMenu.FindItem(Resource.Id.nav_settings)?.SetTitle(loc.NavSettings);
+        }
+
+        ConfigureNavigationLabels();
+    }
+
+    private void UpdateFragmentContainerBottomMargin()
+    {
+        if (_bottomNav == null || _fragmentContainer == null) return;
+        bool useRail = ResponsiveWindowService.Instance.CurrentState.UseNavigationRail;
+        if (_fragmentContainer.LayoutParameters is LinearLayout.LayoutParams lp)
+        {
+            float density = Resources?.DisplayMetrics?.Density ?? 1f;
+            int bottomMargin = useRail
+                ? 0
+                : (_bottomNav.Height > 0 ? _bottomNav.Height : (int)Math.Round(76 * density));
+            if (lp.BottomMargin != bottomMargin)
+            {
+                lp.BottomMargin = bottomMargin;
+                _fragmentContainer.LayoutParameters = lp;
+            }
+        }
+    }
+
+    private void ConfigureNavigationLabels()
+    {
+        _bottomNav?.Post(() =>
+        {
+            if (_bottomNav != null)
+            {
+                ConfigureNavTextViews(_bottomNav);
+                UpdateFragmentContainerBottomMargin();
+            }
+        });
+        _navRail?.Post(() =>
+        {
+            if (_navRail != null)
+            {
+                ConfigureNavTextViews(_navRail);
+            }
+        });
+    }
+
+    private static void ConfigureNavTextViews(View view)
+    {
+        if (view is TextView tv)
+        {
+            tv.SetSingleLine(false);
+            tv.SetMaxLines(2);
+            tv.Ellipsize = Android.Text.TextUtils.TruncateAt.End;
+            tv.Gravity = GravityFlags.CenterHorizontal | GravityFlags.Top;
+            tv.TextAlignment = Android.Views.TextAlignment.Center;
+            if (tv.Parent is View parentView && parentView.LayoutParameters is ViewGroup.MarginLayoutParams mlp)
+            {
+                if (mlp.MarginStart != 0 || mlp.MarginEnd != 0)
+                {
+                    mlp.MarginStart = 0;
+                    mlp.MarginEnd = 0;
+                    parentView.LayoutParameters = mlp;
+                }
+            }
+        }
+        else if (view is ViewGroup vg)
+        {
+            for (int i = 0; i < vg.ChildCount; i++)
+            {
+                var child = vg.GetChildAt(i);
+                if (child != null) ConfigureNavTextViews(child);
+            }
         }
     }
 

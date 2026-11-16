@@ -209,9 +209,9 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_disconnect_pc"
-              style="@style/Widget.Material3.Button.TextButton"
+              style="@style/Widget.SyncDroid.Button.Text.Compact"
               android:layout_width="wrap_content"
-              android:layout_height="34dp"
+              android:layout_height="wrap_content"
               android:text="Disconnect"
               android:textSize="11sp"
               android:visibility="gone" />
@@ -286,9 +286,9 @@
 
           <com.google.android.material.button.MaterialButton
               android:id="@+id/btn_scan_lan"
-              style="@style/Widget.Material3.Button.TonalButton"
+              style="@style/Widget.SyncDroid.Button.Tonal.Compact"
               android:layout_width="wrap_content"
-              android:layout_height="36dp"
+              android:layout_height="wrap_content"
               android:text="Scan LAN"
               android:textSize="12sp"
               app:icon="@drawable/ic_refresh" />
