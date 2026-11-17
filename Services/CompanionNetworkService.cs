@@ -952,7 +952,7 @@ public class CompanionNetworkService
             var json = await resp.Content.ReadAsStringAsync(timeoutCts.Token);
             return JsonSerializer.Deserialize<DirectoryListingResponse>(json, JsonOptions) ?? new DirectoryListingResponse();
         }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        catch (System.OperationCanceledException) when (!token.IsCancellationRequested)
         {
             throw new TimeoutException(LocalizationService.Instance.T(
                 $"Timed out after {DirectoryBrowseTimeout.TotalSeconds:F0}s waiting for remote directory '{remotePath}'. If using an SMB/UNC path (e.g. \\\\server\\share), verify the share name is complete and reachable on the PC.",
@@ -980,7 +980,7 @@ public class CompanionNetworkService
             var json = await resp.Content.ReadAsStringAsync(timeoutCts.Token);
             return JsonSerializer.Deserialize<TreeManifestResponse>(json, JsonOptions) ?? new TreeManifestResponse();
         }
-        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        catch (System.OperationCanceledException) when (!token.IsCancellationRequested)
         {
             throw new TimeoutException(LocalizationService.Instance.T(
                 $"Timed out scanning remote directory tree '{remoteRootPath}' ({TreeManifestTimeout.TotalMinutes:F0} min). If this is a network/SMB path, check that the share is responsive on PC.",

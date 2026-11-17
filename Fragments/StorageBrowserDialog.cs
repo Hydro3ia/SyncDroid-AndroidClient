@@ -69,6 +69,12 @@ public static class StorageBrowserDialog
             currentDir = "/";
         }
 
+        string parentDir = currentDir;
+        bool selectedIsDir = true;
+        long selectedSize = 0;
+        int loadRequestId = 0;
+        CancellationTokenSource? loadCts = null;
+
         if (isRemotePc)
         {
             spinnerRoot.Visibility = ViewStates.Visible;
@@ -93,12 +99,6 @@ public static class StorageBrowserDialog
                 }
             };
         }
-
-        string parentDir = currentDir;
-        bool selectedIsDir = true;
-        long selectedSize = 0;
-        int loadRequestId = 0;
-        CancellationTokenSource? loadCts = null;
 
         inputSelectedPath.Text = currentDir;
 
