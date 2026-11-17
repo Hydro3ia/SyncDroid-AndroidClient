@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Android.Content;
 using Android.Views;
@@ -8,6 +9,7 @@ using Android.Widget;
 using AndroidX.RecyclerView.Widget;
 using Google.Android.Material.Button;
 using Google.Android.Material.Dialog;
+using Google.Android.Material.ProgressIndicator;
 using SyncDroidAndroid.Models;
 using SyncDroidAndroid.Services;
 
@@ -33,6 +35,7 @@ public static class StorageBrowserDialog
         var btnConfirmNewFolder = view.FindViewById<MaterialButton>(Resource.Id.btn_confirm_new_folder)!;
         var btnUp = view.FindViewById<MaterialButton>(Resource.Id.btn_browser_up)!;
         var txtCurrentDir = view.FindViewById<TextView>(Resource.Id.txt_browser_current_dir)!;
+        var progressLoading = view.FindViewById<LinearProgressIndicator>(Resource.Id.progress_browser_loading)!;
         var recyclerEntries = view.FindViewById<RecyclerView>(Resource.Id.recycler_browser_entries)!;
         var txtSelectedLabel = view.FindViewById<TextView>(Resource.Id.txt_selected_path_label)!;
         var inputSelectedPath = view.FindViewById<EditText>(Resource.Id.input_browser_selected_path)!;
@@ -52,23 +55,6 @@ public static class StorageBrowserDialog
 
         BrowserEntriesAdapter? adapter = null;
 
-        if (isRemotePc)
-        {
-            spinnerRoot.Visibility = ViewStates.Visible;
-            var adapterRoot = new ArrayAdapter<string>(context, Android.Resource.Layout.SimpleSpinnerItem, new[] { "Root (/)", "C:\\", "D:\\", "E:\\", "F:\\" });
-            adapterRoot.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
-            spinnerRoot.Adapter = adapterRoot;
-            spinnerRoot.ItemSelected += (sender, e) =>
-            {
-                string? selected = spinnerRoot.SelectedItem?.ToString();
-                if (!string.IsNullOrEmpty(selected))
-                {
-                    string target = selected == "Root (/)" ? "/" : selected;
-                    _ = LoadDirectoryAsync(target);
-                }
-            };
-        }
-
         string currentDir = string.IsNullOrWhiteSpace(initialPath)
             ? (isRemotePc ? @"C:\" : "/storage/emulated/0")
             : initialPath.Trim();
@@ -86,6 +72,33 @@ public static class StorageBrowserDialog
         string parentDir = currentDir;
         bool selectedIsDir = true;
         long selectedSize = 0;
+        int loadRequestId = 0;
+        CancellationTokenSource? loadCts = null;
+
+        if (isRemotePc)
+        {
+            spinnerRoot.Visibility = ViewStates.Visible;
+            var rootOptions = new[] { "Root (/)", "C:\\", "D:\\", "E:\\", "F:\\" };
+            var adapterRoot = new ArrayAdapter<string>(context, Android.Resource.Layout.SimpleSpinnerItem, rootOptions);
+            adapterRoot.SetDropDownViewResource(Android.Resource.Layout.SimpleSpinnerDropDownItem);
+            spinnerRoot.Adapter = adapterRoot;
+
+            bool spinnerInitialized = false;
+            spinnerRoot.ItemSelected += (sender, e) =>
+            {
+                if (!spinnerInitialized)
+                {
+                    spinnerInitialized = true;
+                    return;
+                }
+                string? selected = spinnerRoot.SelectedItem?.ToString();
+                if (!string.IsNullOrEmpty(selected))
+                {
+                    string target = selected == "Root (/)" ? "/" : selected;
+                    _ = LoadDirectoryAsync(target);
+                }
+            };
+        }
 
         inputSelectedPath.Text = currentDir;
 
@@ -93,19 +106,50 @@ public static class StorageBrowserDialog
         dialogBuilder.SetView(view);
         var dialog = dialogBuilder.Create()!;
 
+        dialog.DismissEvent += (_, _) =>
+        {
+            try
+            {
+                loadCts?.Cancel();
+                loadCts?.Dispose();
+                loadCts = null;
+            }
+            catch { }
+        };
+
         async Task LoadDirectoryAsync(string path)
         {
+            int requestId = ++loadRequestId;
+            try
+            {
+                loadCts?.Cancel();
+                loadCts?.Dispose();
+            }
+            catch { }
+
+            var cts = new CancellationTokenSource();
+            loadCts = cts;
+            var token = cts.Token;
+
             txtError.Visibility = ViewStates.Gone;
+            progressLoading.Visibility = ViewStates.Visible;
+            txtCurrentDir.Text = path;
+
             try
             {
                 DirectoryListingResponse resp;
                 if (isRemotePc)
                 {
-                    resp = await CompanionNetworkService.Instance.GetRemotePcDirectoryListingAsync(path, allowSelectFile);
+                    resp = await CompanionNetworkService.Instance.GetRemotePcDirectoryListingAsync(path, allowSelectFile, token);
                 }
                 else
                 {
-                    resp = await Task.Run(() => LocalStorageScanner.GetDirectoryListing(path, allowSelectFile));
+                    resp = await Task.Run(() => LocalStorageScanner.GetDirectoryListing(path, allowSelectFile), token);
+                }
+
+                if (requestId != loadRequestId || token.IsCancellationRequested)
+                {
+                    return;
                 }
 
                 currentDir = resp.CurrentPath;
@@ -116,10 +160,22 @@ public static class StorageBrowserDialog
                 selectedSize = 0;
                 adapter?.UpdateEntries(resp.Entries);
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                // Superseded by a newer navigation request or dialog dismissed
+            }
             catch (Exception ex)
             {
+                if (requestId != loadRequestId) return;
                 txtError.Text = ex.Message;
                 txtError.Visibility = ViewStates.Visible;
+            }
+            finally
+            {
+                if (requestId == loadRequestId)
+                {
+                    progressLoading.Visibility = ViewStates.Gone;
+                }
             }
         }
 

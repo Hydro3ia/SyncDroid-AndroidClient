@@ -202,7 +202,7 @@ public class FileTransferFragment : AndroidX.Fragment.App.Fragment
                     SyncStateService.Instance.AddToQueue(new TransferQueueItem
                     {
                         FullPath = selectedPath,
-                        DisplayName = Path.GetFileName(selectedPath.TrimEnd('/', '\\')),
+                        DisplayName = Path.GetFileName(selectedPath.TrimEnd('/', '\\').Replace('\\', '/')),
                         Size = finalSize,
                         IsDirectory = isDir,
                         IsRemotePcItem = browseRemotePc
@@ -224,7 +224,7 @@ public class FileTransferFragment : AndroidX.Fragment.App.Fragment
                     SyncStateService.Instance.AddToQueue(new TransferQueueItem
                     {
                         FullPath = selectedPath,
-                        DisplayName = Path.GetFileName(selectedPath.TrimEnd('/', '\\')),
+                        DisplayName = Path.GetFileName(selectedPath.TrimEnd('/', '\\').Replace('\\', '/')),
                         Size = 0,
                         IsDirectory = true,
                         IsRemotePcItem = browseRemotePc

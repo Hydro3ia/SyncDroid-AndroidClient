@@ -22,6 +22,17 @@ public class MirrorSyncEngine
     private static string GetLastPathSegment(string path)
     {
         string trimmed = path.Trim().TrimEnd('/', '\\');
+        if (trimmed.StartsWith(@"\\", StringComparison.Ordinal) || trimmed.StartsWith("//", StringComparison.Ordinal))
+        {
+            var uncParts = trimmed.Trim('/', '\\')
+                .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            if (uncParts.Length <= 1)
+            {
+                return "";
+            }
+            return uncParts[^1];
+        }
+
         int idx = trimmed.LastIndexOfAny(new[] { '/', '\\' });
         string name = idx >= 0 ? trimmed[(idx + 1)..] : trimmed;
         return name.Contains(':') ? "" : name;
