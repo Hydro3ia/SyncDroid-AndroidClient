@@ -319,7 +319,7 @@ public sealed class LocalSendService
             try
             {
                 var ctx = await listener.GetContextAsync();
-                _ = Task.Run(() => HandleHttpContextAsync(ctx), token);
+                _ = Task.Run(() => HandleHttpContextAsync(ctx, token), token);
             }
             catch
             {
@@ -328,7 +328,9 @@ public sealed class LocalSendService
         }
     }
 
-    private async Task HandleHttpContextAsync(HttpListenerContext ctx)
+    private static readonly TimeSpan StreamIdleTimeout = TimeSpan.FromSeconds(60);
+
+    private async Task HandleHttpContextAsync(HttpListenerContext ctx, CancellationToken serverToken)
     {
         var req = ctx.Request;
         var res = ctx.Response;
@@ -539,8 +541,17 @@ public sealed class LocalSendService
                         state.AddLog($"Transferring: {safeRelPath} | Speed: {liveSpeed} | Overall: {overallPct:F1}% ({currentIdx}/{totalFiles})");
                     }))
                     {
-                        await req.InputStream.CopyToAsync(trackedFs, 65536);
-                        await trackedFs.FlushAsync();
+                        await trackedFs.CopyFromWithIdleTimeoutAsync(
+                            req.InputStream,
+                            StreamIdleTimeout,
+                            serverToken,
+                            bufferSize: 65536,
+                            onIdleTimeoutAbort: () =>
+                            {
+                                try { req.InputStream.Close(); } catch { }
+                                try { res.Abort(); } catch { }
+                            });
+                        await trackedFs.FlushAsync(serverToken);
                         bytesReceived = trackedFs.TotalBytesTransferred;
                         elapsedSec = trackedFs.ElapsedSeconds;
                     }

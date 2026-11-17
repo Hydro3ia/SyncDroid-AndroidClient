@@ -23,8 +23,29 @@ public static class LocalStorageScanner
     public static bool IsDangerousRootPath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return true;
-        string normalized = path.Trim().Replace('\\', '/').TrimEnd('/');
+        string raw = path.Trim();
+
+        // Check UNC network paths: \\server or \\server\share (or //server/share)
+        if (raw.StartsWith(@"\\", StringComparison.Ordinal) || raw.StartsWith("//", StringComparison.Ordinal))
+        {
+            var uncSegments = raw.Trim('/', '\\')
+                .Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            // Block bare '\\', '\\server' (1 segment), and '\\server\share' share root (2 segments)
+            if (uncSegments.Length <= 2)
+            {
+                return true;
+            }
+        }
+
+        string normalized = raw.Replace('\\', '/').TrimEnd('/');
         if (string.IsNullOrEmpty(normalized)) return true;
+
+        // Block any Windows drive root like "C:", "D:", "Z:"
+        if (normalized.Length == 2 && char.IsLetter(normalized[0]) && normalized[1] == ':')
+        {
+            return true;
+        }
+
         return DangerousRoots.Contains(normalized) || DangerousRoots.Contains(normalized + "\\");
     }
 

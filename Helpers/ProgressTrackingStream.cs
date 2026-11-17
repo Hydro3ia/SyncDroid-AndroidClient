@@ -94,6 +94,53 @@ public sealed class ProgressTrackingStream : Stream
         OnBytesTransferred(buffer.Length);
     }
 
+    /// <summary>
+    /// Copies from <paramref name="source"/> into this stream while enforcing an idle timeout on each read/write operation.
+    /// Throws <see cref="TimeoutException"/> if no bytes are transferred within <paramref name="idleTimeout"/>,
+    /// or <see cref="OperationCanceledException"/> if <paramref name="cancellationToken"/> is triggered.
+    /// </summary>
+    public async Task CopyFromWithIdleTimeoutAsync(
+        Stream source,
+        TimeSpan idleTimeout,
+        CancellationToken cancellationToken = default,
+        int bufferSize = 65536,
+        Action? onIdleTimeoutAbort = null)
+    {
+        byte[] buffer = new byte[bufferSize];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var idleCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            idleCts.CancelAfter(idleTimeout);
+
+            int bytesRead;
+            try
+            {
+                using var reg = idleCts.Token.Register(() =>
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        try { onIdleTimeoutAbort?.Invoke(); } catch { }
+                    }
+                });
+                bytesRead = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), idleCts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && idleCts.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"Stream transfer stalled: no data received within {idleTimeout.TotalSeconds:F0} seconds.",
+                    ex);
+            }
+
+            if (bytesRead <= 0)
+            {
+                break;
+            }
+
+            await WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)

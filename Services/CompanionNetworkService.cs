@@ -518,7 +518,7 @@ public class CompanionNetworkService
             try
             {
                 var context = await listener.GetContextAsync();
-                _ = Task.Run(() => HandleHttpContextAsync(context), token);
+                _ = Task.Run(() => HandleHttpContextAsync(context, token), token);
             }
             catch
             {
@@ -527,7 +527,11 @@ public class CompanionNetworkService
         }
     }
 
-    private async Task HandleHttpContextAsync(HttpListenerContext ctx)
+    private static readonly TimeSpan StreamIdleTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan DirectoryBrowseTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan TreeManifestTimeout = TimeSpan.FromMinutes(3);
+
+    private async Task HandleHttpContextAsync(HttpListenerContext ctx, CancellationToken serverToken)
     {
         var req = ctx.Request;
         var res = ctx.Response;
@@ -580,7 +584,7 @@ public class CompanionNetworkService
 
             if (path.Equals("/api/v1/file/push", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "POST")
             {
-                await HandleServerFilePushAsync(req, res, remoteIp, peerName);
+                await HandleServerFilePushAsync(req, res, remoteIp, peerName, serverToken);
                 return;
             }
 
@@ -632,7 +636,7 @@ public class CompanionNetworkService
                 }
 
                 var fi = new FileInfo(filePath);
-                string sha256 = await FileHashHelper.ComputeSha256Async(filePath);
+                string sha256 = await FileHashHelper.ComputeSha256Async(filePath, serverToken);
                 await WriteJsonResponseAsync(res, new { ok = true, sha256, size = fi.Length });
             }
             else if (path.Equals("/api/v1/file/pull", StringComparison.OrdinalIgnoreCase) && req.HttpMethod == "GET")
@@ -652,12 +656,12 @@ public class CompanionNetworkService
 
                 if (SettingsService.Load().VerifyHashAfterTransfer)
                 {
-                    string sha256 = await FileHashHelper.ComputeSha256Async(filePath);
+                    string sha256 = await FileHashHelper.ComputeSha256Async(filePath, serverToken);
                     res.AddHeader("X-File-Sha256", sha256);
                 }
 
                 await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
-                await fs.CopyToAsync(res.OutputStream);
+                await fs.CopyToAsync(res.OutputStream, 65536, serverToken);
                 res.Close();
                 SyncStateService.Instance.AddLog($"[PC Pull] Sent file: {filePath}");
             }
@@ -700,7 +704,8 @@ public class CompanionNetworkService
         HttpListenerRequest req,
         HttpListenerResponse res,
         string remoteIp,
-        string peerName)
+        string peerName,
+        CancellationToken serverToken)
     {
         string targetPath = req.QueryString["path"] ?? "";
         long.TryParse(req.QueryString["mtimeTicks"], out long mtimeTicks);
@@ -801,8 +806,17 @@ public class CompanionNetworkService
                 state.AddLog($"Transferring: {displayFileName} | Speed: {liveSpeed} | Overall: {livePct:F1}% (1/1)");
             }))
             {
-                await req.InputStream.CopyToAsync(trackedFs, 65536);
-                await trackedFs.FlushAsync();
+                await trackedFs.CopyFromWithIdleTimeoutAsync(
+                    req.InputStream,
+                    StreamIdleTimeout,
+                    serverToken,
+                    bufferSize: 65536,
+                    onIdleTimeoutAbort: () =>
+                    {
+                        try { req.InputStream.Close(); } catch { }
+                        try { res.Abort(); } catch { }
+                    });
+                await trackedFs.FlushAsync(serverToken);
                 bytesWritten = trackedFs.TotalBytesTransferred;
                 elapsedSec = trackedFs.ElapsedSeconds;
             }
@@ -923,28 +937,90 @@ public class CompanionNetworkService
     {
         string baseUrl = EnsureConnectedPcBaseUrl();
         string url = $"{baseUrl}/api/v1/storage/list?path={Uri.EscapeDataString(remotePath ?? "")}&includeFiles={(includeFiles ? "true" : "false")}";
-        var resp = await _httpClient.GetAsync(url, token);
-        resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadAsStringAsync(token);
-        return JsonSerializer.Deserialize<DirectoryListingResponse>(json, JsonOptions) ?? new DirectoryListingResponse();
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeoutCts.CancelAfter(DirectoryBrowseTimeout);
+        try
+        {
+            using var resp = await _httpClient.GetAsync(url, timeoutCts.Token);
+            if (!resp.IsSuccessStatusCode)
+            {
+                string errDetail = await TryReadErrorMessageAsync(resp, timeoutCts.Token);
+                throw new IOException(!string.IsNullOrWhiteSpace(errDetail)
+                    ? errDetail
+                    : $"Remote directory listing failed ({(int)resp.StatusCode} {resp.ReasonPhrase}).");
+            }
+            var json = await resp.Content.ReadAsStringAsync(timeoutCts.Token);
+            return JsonSerializer.Deserialize<DirectoryListingResponse>(json, JsonOptions) ?? new DirectoryListingResponse();
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new TimeoutException(LocalizationService.Instance.T(
+                $"Timed out after {DirectoryBrowseTimeout.TotalSeconds:F0}s waiting for remote directory '{remotePath}'. If using an SMB/UNC path (e.g. \\\\server\\share), verify the share name is complete and reachable on the PC.",
+                $"读取远端目录“{remotePath}”超时（超过 {DirectoryBrowseTimeout.TotalSeconds:F0} 秒未响应）。若为 SMB/局域网共享路径（如 \\\\server\\share），请确认包含完整共享文件夹名且电脑端可正常访问。",
+                $"讀取遠端目錄「{remotePath}」逾時（超過 {DirectoryBrowseTimeout.TotalSeconds:F0} 秒未回應）。若為 SMB/區域網路共用路徑（如 \\\\server\\share），請確認包含完整共用資料夾名稱且電腦端可正常存取。"));
+        }
     }
 
     public async Task<TreeManifestResponse> GetRemotePcTreeManifestAsync(string remoteRootPath, CancellationToken token)
     {
         string baseUrl = EnsureConnectedPcBaseUrl();
         string url = $"{baseUrl}/api/v1/storage/tree?path={Uri.EscapeDataString(remoteRootPath)}";
-        var resp = await _httpClient.GetAsync(url, token);
-        resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadAsStringAsync(token);
-        return JsonSerializer.Deserialize<TreeManifestResponse>(json, JsonOptions) ?? new TreeManifestResponse();
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeoutCts.CancelAfter(TreeManifestTimeout);
+        try
+        {
+            using var resp = await _httpClient.GetAsync(url, timeoutCts.Token);
+            if (!resp.IsSuccessStatusCode)
+            {
+                string errDetail = await TryReadErrorMessageAsync(resp, timeoutCts.Token);
+                throw new IOException(!string.IsNullOrWhiteSpace(errDetail)
+                    ? errDetail
+                    : $"Remote folder tree scan failed ({(int)resp.StatusCode} {resp.ReasonPhrase}).");
+            }
+            var json = await resp.Content.ReadAsStringAsync(timeoutCts.Token);
+            return JsonSerializer.Deserialize<TreeManifestResponse>(json, JsonOptions) ?? new TreeManifestResponse();
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new TimeoutException(LocalizationService.Instance.T(
+                $"Timed out scanning remote directory tree '{remoteRootPath}' ({TreeManifestTimeout.TotalMinutes:F0} min). If this is a network/SMB path, check that the share is responsive on PC.",
+                $"扫描远端目录树“{remoteRootPath}”超时（超过 {TreeManifestTimeout.TotalMinutes:F0} 分钟）。若为 SMB/网络共享路径，请检查电脑端连接是否正常。",
+                $"掃描遠端目錄樹「{remoteRootPath}」逾時（超過 {TreeManifestTimeout.TotalMinutes:F0} 分鐘）。若為 SMB/網路共用路徑，請檢查電腦端連線是否正常。"));
+        }
     }
 
     public async Task CreateRemotePcDirectoryAsync(string remotePath, CancellationToken token = default)
     {
         string baseUrl = EnsureConnectedPcBaseUrl();
         string url = $"{baseUrl}/api/v1/storage/mkdir?path={Uri.EscapeDataString(remotePath)}";
-        var resp = await _httpClient.PostAsync(url, null, token);
-        resp.EnsureSuccessStatusCode();
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeoutCts.CancelAfter(DirectoryBrowseTimeout);
+        using var resp = await _httpClient.PostAsync(url, null, timeoutCts.Token);
+        if (!resp.IsSuccessStatusCode)
+        {
+            string errDetail = await TryReadErrorMessageAsync(resp, timeoutCts.Token);
+            throw new IOException(!string.IsNullOrWhiteSpace(errDetail)
+                ? errDetail
+                : $"Failed to create remote directory ({(int)resp.StatusCode} {resp.ReasonPhrase}).");
+        }
+    }
+
+    private static async Task<string> TryReadErrorMessageAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        try
+        {
+            string body = await resp.Content.ReadAsStringAsync(ct);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("error", out var errProp) && errProp.ValueKind == JsonValueKind.String)
+                {
+                    return errProp.GetString() ?? "";
+                }
+            }
+        }
+        catch { }
+        return "";
     }
 
     public async Task<(long BytesTransferred, double ElapsedSeconds, bool Skipped)> PushFileToPcAsync(
@@ -1024,13 +1100,28 @@ public class CompanionNetworkService
         try
         {
             using var resp = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
-            resp.EnsureSuccessStatusCode();
+            if (!resp.IsSuccessStatusCode)
+            {
+                string errDetail = await TryReadErrorMessageAsync(resp, token);
+                throw new IOException(!string.IsNullOrWhiteSpace(errDetail)
+                    ? errDetail
+                    : $"Failed to pull '{remoteFilePath}' ({(int)resp.StatusCode} {resp.ReasonPhrase}).");
+            }
 
             await using (var netStream = await resp.Content.ReadAsStreamAsync(token))
             await using (var rawFs = new FileStream(tempPartPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
             await using (var trackedFs = new ProgressTrackingStream(rawFs, onProgressCallback))
             {
-                await netStream.CopyToAsync(trackedFs, 65536, token);
+                await trackedFs.CopyFromWithIdleTimeoutAsync(
+                    netStream,
+                    StreamIdleTimeout,
+                    token,
+                    bufferSize: 65536,
+                    onIdleTimeoutAbort: () =>
+                    {
+                        try { netStream.Close(); } catch { }
+                        try { resp.Dispose(); } catch { }
+                    });
                 await trackedFs.FlushAsync(token);
                 bytesPulled = trackedFs.TotalBytesTransferred;
                 elapsedSec = trackedFs.ElapsedSeconds;
